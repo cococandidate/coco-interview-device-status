@@ -59,6 +59,5 @@ Clears delivery history and the dead-letter queue.
 
 ## Note
 
-The bus reaches your service at `host.docker.internal:3000`, so it expects your
-service to be running on the machine rather than inside a container. If you
-containerize it, publish port 3000 to the host.
+The bus reaches your service at `localhost:3000` on the shared container network,
+which is where `make run` starts it.

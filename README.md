@@ -6,40 +6,38 @@ Start with [TASK.md](TASK.md).
 
 ```
 TASK.md                        what to build
+service/                       your code, once you run make start-<language>
 docs/fleet-api.md              device state and the availability rule
 docs/partner-supply-api.md     the partner platform
 docs/event-bus.md              a queue with an HTTP front door
-scaffolds/                     optional starting points, one per language
+scaffolds/                     starting points, one per language
 ```
 
 ## Quick start
 
 ```
-make up
+make up                 # the three services, probably already running
+make start-typescript   # or start-go, start-python, start-csharp, start-java
+make run
 ```
 
-That starts the three services you depend on. They should already be running on
-the machine you are sitting at.
-
-Your service listens on **port 3000**. Write it in whatever language you like,
-starting from a scaffold in `scaffolds/` or from scratch.
+`make start-<language>` copies that scaffold into `service/`. It serves
+`POST /v1/devices/{serial}/status`, parses the request, and has HTTP helpers for
+calling the other services. The handler body is yours.
 
 ```
-make shell     # a terminal with Node, Go, Python, .NET and the JDK installed
 make verify    # the partner's conformance suite, run against your service
 make state     # what the partner and the bus have actually seen
 make reset     # clear partner and bus state between runs
+make shell     # a terminal with Node, Go, Python, .NET and the JDK installed
 make logs      # logs from the three services
 ```
 
-`make shell` drops you into a container that shares the network with the three
-services, so `localhost:4001` and friends work from inside it exactly as the docs
-describe. Your code lives in this directory on the host, so your editor works
-normally.
-
-If you would rather run your service directly on the machine instead of in that
-container, stop the dev container first (`docker compose stop dev`) so port 3000
-is free.
+`make run` and `make shell` both drop into a container that shares the network
+with the three services, so `localhost:4001` and friends work from inside exactly
+as the docs describe. Port 3000 is published from that container to the host, so
+your service has to run there rather than directly on the machine. Your code
+lives in this directory on the host, so your editor works normally.
 
 ## Notes
 

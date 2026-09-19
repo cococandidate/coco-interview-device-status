@@ -1,4 +1,6 @@
-.PHONY: pull up down shell logs verify reset state
+SCAFFOLDS := go typescript python csharp java
+
+.PHONY: pull up down shell logs verify reset state run $(addprefix start-,$(SCAFFOLDS))
 
 pull:
 	docker compose pull
@@ -9,7 +11,23 @@ up:
 	@echo "partner-supply   http://localhost:4002"
 	@echo "event-bus        http://localhost:4003"
 	@echo ""
-	@echo "run 'make shell' for a terminal with every toolchain installed"
+	@echo "run 'make start-<language>' to drop a scaffold into service/"
+
+$(addprefix start-,$(SCAFFOLDS)): start-%:
+	@test -z "$$(ls -A service 2>/dev/null)" || { echo "service/ already has files in it, refusing to overwrite"; exit 1; }
+	@mkdir -p service
+	@cp -R scaffolds/$*/. service/
+	@echo "copied scaffolds/$* into service/"
+	@echo "start it with 'make run'"
+
+run:
+	@docker compose exec dev bash -lc 'cd /work/service 2>/dev/null || { echo "service/ is empty, run make start-<language> first"; exit 1; }; \
+	  if [ -f go.mod ]; then exec go run .; \
+	  elif [ -f server.mjs ]; then exec node server.mjs; \
+	  elif [ -f server.py ]; then exec python3 server.py; \
+	  elif [ -f Server.java ]; then exec java Server.java; \
+	  elif [ -f candidate.csproj ]; then exec dotnet run; \
+	  else echo "nothing recognisable in service/"; exit 1; fi'
 
 shell:
 	docker compose exec dev bash

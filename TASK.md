@@ -11,7 +11,17 @@ keeps the partner's view of each robot correct.
 POST /v1/devices/{serial}/status
 ```
 
-Your service listens on **port 3000**. Language and framework are your choice.
+Your service listens on **port 3000**.
+
+```
+make start-go     # or start-typescript, start-python, start-csharp, start-java
+make run
+```
+
+`make start-<language>` copies a scaffold into `service/`. It already serves the
+route above, parses the request, and has helpers for calling the other services
+over HTTP. The handler body is where your work goes. Starting from scratch in
+another language is fine too, as long as it listens on port 3000.
 
 ### The request
 
@@ -37,10 +47,13 @@ whether the robot can currently take work. That means:
 
 1. Decide whether the robot is available. `docs/fleet-api.md` has the rule.
 2. Map our serial to the partner's vehicle id. `docs/partner-supply-api.md`.
-3. Write the availability to the partner.
+3. Write the availability to the partner. Same doc.
 
 A recent fleet release added `MAINTENANCE` to the limiting factors it can emit,
 so you will see it in traffic.
+
+`docs/event-bus.md` describes a queue that is available to you. Nothing requires
+it.
 
 ### How the fleet service calls you
 
@@ -64,11 +77,17 @@ Seconds of staleness are fine. Minutes are not.
 
 ```
 make up        # the three services you depend on
-make shell     # a terminal with every toolchain installed
+make run       # start your service from service/
 make verify    # the partner's conformance suite, run against your service
 make state     # what the partner and the bus have actually seen
 make reset     # clear partner and bus state between runs
+make shell     # a terminal with every toolchain installed
 ```
+
+Your service runs in a container that shares a network with the three services,
+which is what `make run` and `make shell` give you. `localhost:4001` and friends
+work there exactly as the docs describe. Your code lives in this directory on the
+host, so your editor works normally.
 
 `make verify` is the suite the partner runs against integrations before a
 release. It is a release gate, not a specification.
@@ -78,6 +97,8 @@ release. It is a release gate, not a specification.
 Push a branch and open a pull request. Write the description yourself, there is
 no template. Your interviewer will read it the way they would read a real PR from
 a teammate, before they read the diff.
+
+Leave yourself ten minutes for it.
 
 ## Scope
 
