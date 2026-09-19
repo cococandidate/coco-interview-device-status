@@ -1,0 +1,32 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0-bookworm-slim
+
+ARG NODE_VERSION=20.18.1
+ARG GO_VERSION=1.26.0
+ARG TARGETARCH
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl git xz-utils jq make \
+      python3 python3-pip python3-venv \
+      openjdk-17-jdk-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN case "$TARGETARCH" in \
+      arm64) NODE_ARCH=arm64; GO_ARCH=arm64 ;; \
+      amd64) NODE_ARCH=x64;   GO_ARCH=amd64 ;; \
+      *) echo "unsupported arch: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
+      | tar -xJ -C /usr/local --strip-components=1 \
+ && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" \
+      | tar -xz -C /usr/local
+
+RUN printf 'export PATH=/usr/local/go/bin:/root/go/bin:$PATH\n' > /etc/profile.d/toolchains.sh
+
+ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}" \
+    GOCACHE=/tmp/go-build \
+    DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_NOLOGO=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /work
+CMD ["sleep", "infinity"]

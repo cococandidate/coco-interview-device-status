@@ -1,0 +1,23 @@
+services:
+  stack:
+    image: ghcr.io/cocorobotics/coco-interview-stack:latest
+    container_name: interview-stack
+    ports:
+      - "3000:3000"
+      - "4001:4001"
+      - "4002:4002"
+      - "4003:4003"
+    environment:
+      SUBSCRIBER_URL: "http://localhost:3000/internal/events"
+      CANDIDATE_URL: "http://localhost:3000"
+
+  dev:
+    image: ghcr.io/cocorobotics/coco-interview-dev:latest
+    container_name: interview-dev
+    network_mode: "service:stack"
+    working_dir: /work
+    volumes:
+      - .:/work
+    command: ["sleep", "infinity"]
+    depends_on:
+      - stack
