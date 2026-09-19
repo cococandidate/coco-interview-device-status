@@ -50,6 +50,23 @@ work. See `docs/partner-supply-api.md` for how to write it and
 A recent fleet release added `MAINTENANCE` to the set of limiting factors it can
 emit, so you will see it in traffic.
 
+### Who reads it
+
+That record is what the partner's dispatch system reads when it decides where to
+send orders. It reads continuously and acts on whatever it last saw.
+
+- If the partner believes a robot is available when it is not, it offers that
+  robot an order nobody can pick up. The order sits until it times out and the
+  customer waits through all of it.
+- If the partner believes a robot is unavailable when it is not, the robot sits
+  idle and we lose the work.
+
+A few seconds of staleness is normal and nobody notices. Minutes are a problem.
+
+There is no other path by which the partner learns about a robot's state. There
+is no nightly reconciliation and no polling fallback. What you write is what it
+knows.
+
 ## Running things
 
 ```
