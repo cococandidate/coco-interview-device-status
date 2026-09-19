@@ -1,14 +1,11 @@
 # Task
 
-You are on the integrations team. We run the seam between our robot fleet and a
-delivery partner's supply platform: device state comes in from internal services,
-partner-visible availability goes out.
+You are on the integrations team, between our robot fleet and a delivery
+partner's platform. The fleet service has just started emitting device status
+changes and nothing consumes them yet. Build the endpoint that receives them and
+keeps the partner's view of each robot correct.
 
-The fleet service has just started emitting device status changes to us. Nothing
-consumes them yet. Your job is to build the endpoint that receives them and keeps
-the partner's view of each robot correct.
-
-## What to build
+## Build this
 
 ```
 POST /v1/devices/{serial}/status
@@ -16,12 +13,12 @@ POST /v1/devices/{serial}/status
 
 Your service listens on **port 3000**. Language and framework are your choice.
 
-### Request
+### The request
 
 ```
 POST /v1/devices/C10393/status
 Content-Type: application/json
-X-Change-Id: chg_01J8ZQ...
+X-Change-Id: chg_01J8ZQ4M7XN2VB
 
 {
   "status": "ONLINE",
@@ -31,65 +28,61 @@ X-Change-Id: chg_01J8ZQ...
 ```
 
 `status` is `ONLINE` or `OFFLINE`. `limitingFactors` is a possibly empty list of
-reasons the device cannot currently take work. `X-Change-Id` is unique per state
-change.
+reasons the robot cannot take work. `X-Change-Id` is unique per state change.
+
+### What it has to do
+
+For every status change, the partner's record for that robot ends up matching
+whether the robot can currently take work. That means:
+
+1. Decide whether the robot is available. `docs/fleet-api.md` has the rule.
+2. Map our serial to the partner's vehicle id. `docs/partner-supply-api.md`.
+3. Write the availability to the partner.
+
+A recent fleet release added `MAINTENANCE` to the limiting factors it can emit,
+so you will see it in traffic.
 
 ### How the fleet service calls you
 
-- It **times out at 500ms** and ignores your response body. Any 2xx means delivered.
-- On a 5xx or a timeout it **retries twice**, then **drops the update**.
-- It emits a change every time a device's computed status changes. In production
-  that is a few hundred robots.
+- It times out at **500ms** and ignores your response body. Any 2xx means delivered.
+- On a 5xx or a timeout it retries twice, then **drops the update**.
+- One call per state change, across a few hundred robots.
 
-### What has to end up true
+### Why the record has to be right
 
-The partner's record for that robot reflects whether the robot can currently take
-work. See `docs/partner-supply-api.md` for how to write it and
-`docs/fleet-api.md` for the rule that decides it.
+The partner's dispatch system reads it continuously and acts on whatever it last
+saw. There is no reconciliation job and no polling fallback, so what you write is
+what it knows.
 
-A recent fleet release added `MAINTENANCE` to the set of limiting factors it can
-emit, so you will see it in traffic.
+- Available when it is not: the partner sends an order nobody can pick up, and
+  the customer waits it out.
+- Unavailable when it is not: the robot sits idle and we lose the work.
 
-### Who reads it
-
-That record is what the partner's dispatch system reads when it decides where to
-send orders. It reads continuously and acts on whatever it last saw.
-
-- If the partner believes a robot is available when it is not, it offers that
-  robot an order nobody can pick up. The order sits until it times out and the
-  customer waits through all of it.
-- If the partner believes a robot is unavailable when it is not, the robot sits
-  idle and we lose the work.
-
-A few seconds of staleness is normal and nobody notices. Minutes are a problem.
-
-There is no other path by which the partner learns about a robot's state. There
-is no nightly reconciliation and no polling fallback. What you write is what it
-knows.
+Seconds of staleness are fine. Minutes are not.
 
 ## Running things
 
 ```
-make up        # starts the three services you depend on
-make verify    # runs the partner's conformance suite against your service
-make state     # dumps what the partner and the bus have actually seen
-make reset     # clears partner and bus state between runs
+make up        # the three services you depend on
+make shell     # a terminal with every toolchain installed
+make verify    # the partner's conformance suite, run against your service
+make state     # what the partner and the bus have actually seen
+make reset     # clear partner and bus state between runs
 ```
 
-`make verify` is the same suite the partner runs against integrations before a
+`make verify` is the suite the partner runs against integrations before a
 release. It is a release gate, not a specification.
 
 ## When you are done
 
-Push a branch and open a pull request. Write the description yourself, there is no
-template. Your interviewer is going to read it the way they would read a real PR
-from a teammate, before they read the diff.
+Push a branch and open a pull request. Write the description yourself, there is
+no template. Your interviewer will read it the way they would read a real PR from
+a teammate, before they read the diff.
 
-## A note on scope
+## Scope
 
-Most people do not finish everything they would want to. That is expected and it
-is fine. How you work and what you choose to do first matter more here than
-getting to a complete feature.
+Most people do not finish everything they would want to, and that is fine. How
+you work and what you choose to do first matter more than a complete feature.
 
 Use whatever tools you normally use, AI included. We will ask you about any part
 of what you produce.
