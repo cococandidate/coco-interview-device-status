@@ -89,9 +89,9 @@ in this directory on the host, so your editor works normally.
 
 ## Scaffolds
 
-Optional, one per language, standard library only so nothing needs installing.
-Each serves the route and `GET /health` on port 3000, parses the body and the
-change id, and has `get` / `put` / `post` helpers for the other services.
+Optional, one per language, and nothing needs installing. Each serves the route
+and `GET /health` on port 3000, parses the body and the change id, and has
+`get` / `put` / `post` helpers for the other services.
 
 | Language | Start | Runs as | `make test` runs |
 |---|---|---|---|
@@ -103,6 +103,9 @@ change id, and has `get` / `put` / `post` helpers for the other services.
 
 The TypeScript one is real TypeScript. Node runs it directly, `@types/node` is
 vendored so your editor works offline, and `tsc --noEmit` is on the path.
+
+The Java one uses Gson, since the JDK has no JSON. The jar is in the image and
+already on the classpath, so `import com.google.gson.Gson` just works.
 
 For C#, `make test` expects a project in `service/tests`, which you can create
 with `dotnet new xunit -o tests` from `make shell`.

@@ -4,6 +4,7 @@ LABEL org.opencontainers.image.source=https://github.com/cocorobotics/coco-inter
 ARG NODE_VERSION=24.21.0
 ARG GO_VERSION=1.26.0
 ARG JUNIT_VERSION=1.11.4
+ARG GSON_VERSION=2.14.0
 ARG TARGETARCH
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,11 +27,14 @@ RUN case "$TARGETARCH" in \
 RUN npm install -g typescript@5 && npm cache clean --force
 
 RUN curl -fsSL -o /opt/junit-console.jar \
-      "https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/${JUNIT_VERSION}/junit-platform-console-standalone-${JUNIT_VERSION}.jar"
+      "https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/${JUNIT_VERSION}/junit-platform-console-standalone-${JUNIT_VERSION}.jar" \
+ && curl -fsSL -o /opt/gson.jar \
+      "https://repo1.maven.org/maven2/com/google/code/gson/gson/${GSON_VERSION}/gson-${GSON_VERSION}.jar"
 
 RUN printf 'export PATH=/usr/local/go/bin:/root/go/bin:$PATH\n' > /etc/profile.d/toolchains.sh
 
 ENV JUNIT_JAR=/opt/junit-console.jar \
+    GSON_JAR=/opt/gson.jar \
     PATH="/usr/local/go/bin:/root/go/bin:${PATH}" \
     GOCACHE=/tmp/go-build \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \

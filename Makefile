@@ -26,7 +26,7 @@ run:
 	  if [ -f go.mod ]; then exec go run .; \
 	  elif [ -f server.ts ]; then exec node --experimental-transform-types --disable-warning=ExperimentalWarning server.ts; \
 	  elif [ -f server.py ]; then exec python3 server.py; \
-	  elif [ -f Server.java ]; then exec java Server.java; \
+	  elif [ -f Server.java ]; then exec java -cp "$$GSON_JAR" Server.java; \
 	  elif [ -f candidate.csproj ]; then exec dotnet run; \
 	  else echo "nothing recognisable in service/"; exit 1; fi'
 
@@ -35,7 +35,7 @@ test:
 	  if [ -f go.mod ]; then exec go test ./...; \
 	  elif [ -f server.ts ]; then exec node --test; \
 	  elif [ -f server.py ]; then exec pytest -q; \
-	  elif [ -f Server.java ]; then javac -cp "$$JUNIT_JAR" *.java && exec java -jar "$$JUNIT_JAR" execute --class-path . --scan-class-path --details=summary; \
+	  elif [ -f Server.java ]; then javac -cp "$$JUNIT_JAR:$$GSON_JAR" *.java && exec java -jar "$$JUNIT_JAR" execute --class-path ".:$$GSON_JAR" --scan-class-path --details=summary; \
 	  elif [ -f candidate.csproj ]; then \
 	    if [ -d tests ]; then exec dotnet test tests; else echo "no test project yet: make shell, then dotnet new xunit -o tests"; exit 1; fi; \
 	  else echo "nothing recognisable in service/"; exit 1; fi'
