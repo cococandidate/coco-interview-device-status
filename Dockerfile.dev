@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0-bookworm-slim
 LABEL org.opencontainers.image.source=https://github.com/cocorobotics/coco-interview-device-status
 
-ARG NODE_VERSION=20.18.1
+ARG NODE_VERSION=24.21.0
 ARG GO_VERSION=1.26.0
 ARG TARGETARCH
 
@@ -20,6 +20,8 @@ RUN case "$TARGETARCH" in \
       | tar -xJ -C /usr/local --strip-components=1 \
  && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" \
       | tar -xz -C /usr/local
+
+RUN npm install -g typescript@5 && npm cache clean --force
 
 RUN printf 'export PATH=/usr/local/go/bin:/root/go/bin:$PATH\n' > /etc/profile.d/toolchains.sh
 

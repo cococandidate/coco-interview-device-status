@@ -11,9 +11,13 @@ and returns 200. Everything else is yours.
 Every scaffold uses only its language's standard library, so none of them need a
 package install to run. Add whatever framework you prefer.
 
+The TypeScript one is real TypeScript. Node 24 runs it directly, `@types/node`
+is already vendored so your editor works offline, and `tsc --noEmit` is on the
+path if you want a typecheck.
+
 | Language | Command | Runs as |
 |---|---|---|
-| TypeScript / Node | `make start-typescript` | `node server.mjs` |
+| TypeScript / Node | `make start-typescript` | `node server.ts` |
 | Go | `make start-go` | `go run .` |
 | Python | `make start-python` | `python3 server.py` |
 | C# | `make start-csharp` | `dotnet run` |

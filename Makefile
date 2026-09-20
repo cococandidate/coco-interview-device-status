@@ -17,13 +17,14 @@ $(addprefix start-,$(SCAFFOLDS)): start-%:
 	@test -z "$$(ls -A service 2>/dev/null)" || { echo "service/ already has files in it, refusing to overwrite"; exit 1; }
 	@mkdir -p service
 	@cp -R scaffolds/$*/. service/
+	@if [ -d service/vendor ]; then mkdir -p service/node_modules && cp -R service/vendor/. service/node_modules/ && rm -rf service/vendor; fi
 	@echo "copied scaffolds/$* into service/"
 	@echo "start it with 'make run'"
 
 run:
 	@docker compose exec dev bash -lc 'cd /work/service 2>/dev/null || { echo "service/ is empty, run make start-<language> first"; exit 1; }; \
 	  if [ -f go.mod ]; then exec go run .; \
-	  elif [ -f server.mjs ]; then exec node server.mjs; \
+	  elif [ -f server.ts ]; then exec node --experimental-transform-types --disable-warning=ExperimentalWarning server.ts; \
 	  elif [ -f server.py ]; then exec python3 server.py; \
 	  elif [ -f Server.java ]; then exec java Server.java; \
 	  elif [ -f candidate.csproj ]; then exec dotnet run; \

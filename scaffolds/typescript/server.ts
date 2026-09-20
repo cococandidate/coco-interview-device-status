@@ -1,4 +1,4 @@
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 export const config = {
   port: Number(process.env.PORT ?? 3000),
@@ -7,11 +7,21 @@ export const config = {
   busUrl: process.env.BUS_URL ?? "http://localhost:4003",
 };
 
+export interface StatusChange {
+  status: "ONLINE" | "OFFLINE";
+  limitingFactors: string[];
+  observedAt: string;
+}
+
 const STATUS_CHANGE = /^\/v1\/devices\/([^/]+)\/status$/;
 
-async function handleStatusChange(req, res, serial) {
+async function handleStatusChange(
+  req: IncomingMessage,
+  res: ServerResponse,
+  serial: string,
+): Promise<void> {
   const changeId = req.headers["x-change-id"];
-  const change = await readJson(req);
+  const change = await readJson<StatusChange>(req);
 
   console.log(
     `change=${changeId} serial=${serial} status=${change?.status} factors=${change?.limitingFactors}`,
@@ -24,9 +34,9 @@ async function handleStatusChange(req, res, serial) {
 
 const server = createServer(async (req, res) => {
   try {
-    const path = req.url.split("?")[0];
+    const path = (req.url ?? "").split("?")[0];
 
-    const match = req.method === "POST" && path.match(STATUS_CHANGE);
+    const match = req.method === "POST" ? path.match(STATUS_CHANGE) : null;
     if (match) return await handleStatusChange(req, res, match[1]);
 
     if (req.method === "GET" && path === "/health") {
@@ -46,19 +56,24 @@ server.listen(config.port, () => {
 
 // --- plumbing, nothing below here is part of the exercise ---
 
-export async function get(url) {
-  return await call("GET", url);
+export interface HttpResponse<T = unknown> {
+  status: number;
+  body: T | undefined;
 }
 
-export async function put(url, body) {
-  return await call("PUT", url, body);
+export async function get<T = unknown>(url: string): Promise<HttpResponse<T>> {
+  return await call<T>("GET", url);
 }
 
-export async function post(url, body) {
-  return await call("POST", url, body);
+export async function put<T = unknown>(url: string, body: unknown): Promise<HttpResponse<T>> {
+  return await call<T>("PUT", url, body);
 }
 
-async function call(method, url, body) {
+export async function post<T = unknown>(url: string, body: unknown): Promise<HttpResponse<T>> {
+  return await call<T>("POST", url, body);
+}
+
+async function call<T>(method: string, url: string, body?: unknown): Promise<HttpResponse<T>> {
   const res = await fetch(url, {
     method,
     headers: body === undefined ? {} : { "Content-Type": "application/json" },
@@ -66,17 +81,17 @@ async function call(method, url, body) {
   });
 
   const text = await res.text();
-  return { status: res.status, body: text ? JSON.parse(text) : undefined };
+  return { status: res.status, body: text ? (JSON.parse(text) as T) : undefined };
 }
 
-export async function readJson(req) {
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+export async function readJson<T>(req: IncomingMessage): Promise<T | undefined> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
   if (chunks.length === 0) return undefined;
-  return JSON.parse(Buffer.concat(chunks).toString());
+  return JSON.parse(Buffer.concat(chunks).toString()) as T;
 }
 
-export function sendJson(res, code, body) {
+export function sendJson(res: ServerResponse, code: number, body: unknown): void {
   res.writeHead(code, { "Content-Type": "application/json" });
   res.end(JSON.stringify(body));
 }
