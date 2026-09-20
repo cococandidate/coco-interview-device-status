@@ -24,3 +24,18 @@ path if you want a typecheck.
 | Java | `make start-java` | `java Server.java` |
 
 `make run` picks the right one from whatever is in `service/`.
+
+## Tests
+
+`make shell` gets you a terminal in the container. Every language has a runner
+already installed, so none of these need a download.
+
+| Language | Write | Run |
+|---|---|---|
+| TypeScript / Node | `*.test.ts` using `node:test` | `node --test` |
+| Go | `*_test.go` | `go test ./...` |
+| Python | `test_*.py` | `pytest` |
+| Java | a JUnit 5 class | `javac -cp $JUNIT_JAR *.java && java -jar $JUNIT_JAR execute --class-path . --select-class ServerTest` |
+| C# | `dotnet new xunit -o tests` | `cd tests && dotnet test` |
+
+The container also has `curl`, `jq`, `git`, `vim`, `nano` and `less`.

@@ -3,11 +3,13 @@ LABEL org.opencontainers.image.source=https://github.com/cocorobotics/coco-inter
 
 ARG NODE_VERSION=24.21.0
 ARG GO_VERSION=1.26.0
+ARG JUNIT_VERSION=1.11.4
 ARG TARGETARCH
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl git xz-utils jq make procps psmisc lsof \
-      python3 python3-pip python3-venv \
+      vim nano less tree \
+      python3 python3-pip python3-venv python3-pytest \
       openjdk-17-jdk-headless \
     && rm -rf /var/lib/apt/lists/*
 
@@ -23,9 +25,13 @@ RUN case "$TARGETARCH" in \
 
 RUN npm install -g typescript@5 && npm cache clean --force
 
+RUN curl -fsSL -o /opt/junit-console.jar \
+      "https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/${JUNIT_VERSION}/junit-platform-console-standalone-${JUNIT_VERSION}.jar"
+
 RUN printf 'export PATH=/usr/local/go/bin:/root/go/bin:$PATH\n' > /etc/profile.d/toolchains.sh
 
-ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}" \
+ENV JUNIT_JAR=/opt/junit-console.jar \
+    PATH="/usr/local/go/bin:/root/go/bin:${PATH}" \
     GOCACHE=/tmp/go-build \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1 \
