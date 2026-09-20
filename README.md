@@ -29,7 +29,7 @@ calling the other services. The handler body is yours.
 make verify    # the partner's conformance suite, run against your service
 make state     # what the partner and the bus have actually seen
 make reset     # clear partner and bus state between runs
-make shell     # a terminal with Node, Go, Python, .NET and the JDK installed
+make shell     # a terminal in that container, for a package install or a test run
 make logs      # logs from the three services
 ```
 

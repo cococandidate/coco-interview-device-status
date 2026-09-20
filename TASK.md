@@ -49,8 +49,7 @@ whether the robot can currently take work. That means:
 2. Map our serial to the partner's vehicle id. `docs/partner-supply-api.md`.
 3. Write the availability to the partner. Same doc.
 
-A recent fleet release added `MAINTENANCE` to the limiting factors it can emit,
-so you will see it in traffic.
+The fleet starts sending changes as soon as your service is listening.
 
 `docs/event-bus.md` describes a queue that is available to you. Nothing requires
 it.
@@ -59,7 +58,7 @@ it.
 
 - It times out at **500ms** and ignores your response body. Any 2xx means delivered.
 - On a 5xx or a timeout it retries twice, then **drops the update**.
-- One call per state change, across a few hundred robots.
+- One call per state change.
 
 ### Why the record has to be right
 
@@ -81,7 +80,7 @@ make run       # start your service from service/
 make verify    # the partner's conformance suite, run against your service
 make state     # what the partner and the bus have actually seen
 make reset     # clear partner and bus state between runs
-make shell     # a terminal with every toolchain installed
+make shell     # a terminal in that container, for a package install or a test run
 ```
 
 Your service runs in a container that shares a network with the three services,
