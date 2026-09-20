@@ -1,6 +1,6 @@
 SCAFFOLDS := go typescript python csharp java
 
-.PHONY: pull up down shell logs verify reset state run $(addprefix start-,$(SCAFFOLDS))
+.PHONY: pull up down shell logs verify reset state run traffic-on traffic-off $(addprefix start-,$(SCAFFOLDS))
 
 pull:
 	docker compose pull
@@ -47,7 +47,17 @@ reset:
 	@curl -s -X POST http://localhost:4003/v1/_debug/reset > /dev/null
 	@echo "partner and bus state cleared"
 
+traffic-on:
+	@curl -s -X POST -H 'Content-Type: application/json' -d '{"enabled":true}' http://localhost:4001/v1/_debug/traffic > /dev/null
+	@echo "fleet traffic on"
+
+traffic-off:
+	@curl -s -X POST -H 'Content-Type: application/json' -d '{"enabled":false}' http://localhost:4001/v1/_debug/traffic > /dev/null
+	@echo "fleet traffic off"
+
 state:
+	@echo "--- fleet emitted ---"
+	@curl -s http://localhost:4001/v1/_debug/emitted
 	@echo "--- partner calls ---"
 	@curl -s http://localhost:4002/v1/_debug/calls
 	@echo "--- bus deliveries ---"

@@ -2,7 +2,8 @@
 
 `http://localhost:4001`
 
-Owns device state for the fleet. Read-only to us.
+Owns device state for the fleet. Read-only to us, and it calls our
+endpoint whenever a device changes state.
 
 ## Availability rule
 
@@ -51,5 +52,15 @@ The fleet's current record for a device.
 ## `GET /v1/devices`
 
 Every seeded device. Useful for finding serials to test with.
+
+## `GET /v1/_debug/emitted`
+
+The last 60 status changes the fleet sent you, with how many attempts each took
+and whether it was delivered or dropped. Not part of the real fleet API. It is
+here so you can see what reached you and what did not.
+
+## `POST /v1/_debug/traffic`
+
+`{"enabled": false}` stops the fleet emitting, `true` starts it again.
 
 ## `GET /v1/health`
