@@ -22,7 +22,8 @@ Any other limiting factor is informational and does not block availability.
 
 ## `POST /v1/availability`
 
-Applies the rule above.
+Takes a device's `status` and `limitingFactors` and returns whether it should be
+considered available, along with the limiting factors justifying that answer.
 
 ```
 POST /v1/availability
