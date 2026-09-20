@@ -20,7 +20,7 @@ app.MapPost("/v1/devices/{serial}/status", async (string serial, HttpRequest req
 
     Console.WriteLine($"change={changeId} serial={serial} status={change?.Status} factors={string.Join(",", change?.LimitingFactors ?? [])}");
 
-    // TODO: the three steps in TASK.md go here.
+    // TODO: the three steps in the README go here.
 
     return Results.Json(new { status = "ok" });
 });

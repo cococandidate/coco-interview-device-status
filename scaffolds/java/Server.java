@@ -35,7 +35,7 @@ public class Server {
         System.out.printf("change=%s serial=%s status=%s factors=%s%n",
                 changeId, serial, change.get("status"), change.get("limitingFactors"));
 
-        // TODO: the three steps in TASK.md go here.
+        // TODO: the three steps in the README go here.
 
         sendJson(exchange, 200, Map.of("status", "ok"));
     }

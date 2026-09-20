@@ -27,7 +27,7 @@ async function handleStatusChange(
     `change=${changeId} serial=${serial} status=${change?.status} factors=${change?.limitingFactors}`,
   );
 
-  // TODO: the three steps in TASK.md go here.
+  // TODO: the three steps in the README go here.
 
   sendJson(res, 200, { status: "ok" });
 }

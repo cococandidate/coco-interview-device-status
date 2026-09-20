@@ -47,7 +47,7 @@ func handleStatusChange(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("change=%s serial=%s status=%s factors=%v", changeID, serial, change.Status, change.LimitingFactors)
 
-	// TODO: the three steps in TASK.md go here.
+	// TODO: the three steps in the README go here.
 
 	sendJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

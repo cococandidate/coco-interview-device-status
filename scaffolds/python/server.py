@@ -37,7 +37,7 @@ class Handler(BaseHTTPRequestHandler):
             f"status={change.get('status')} factors={change.get('limitingFactors')}"
         )
 
-        # TODO: the three steps in TASK.md go here.
+        # TODO: the three steps in the README go here.
 
         self.send_json(200, {"status": "ok"})
 
