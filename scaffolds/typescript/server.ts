@@ -32,7 +32,7 @@ async function handleStatusChange(
   sendJson(res, 200, { status: "ok" });
 }
 
-const server = createServer(async (req, res) => {
+export const server = createServer(async (req, res) => {
   try {
     const path = (req.url ?? "").split("?")[0];
 
@@ -50,9 +50,12 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(config.port, () => {
-  console.log(`listening on :${config.port}`);
-});
+// Guarded so a test that imports this file does not bind the port.
+if (import.meta.main) {
+  server.listen(config.port, () => {
+    console.log(`listening on :${config.port}`);
+  });
+}
 
 // --- plumbing, nothing below here is part of the exercise ---
 
@@ -73,11 +76,14 @@ export async function post<T = unknown>(url: string, body: unknown): Promise<Htt
   return await call<T>("POST", url, body);
 }
 
+const REQUEST_TIMEOUT_MS = 5000;
+
 async function call<T>(method: string, url: string, body?: unknown): Promise<HttpResponse<T>> {
   const res = await fetch(url, {
     method,
     headers: body === undefined ? {} : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   const text = await res.text();
