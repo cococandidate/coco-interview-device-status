@@ -13,10 +13,12 @@ make start-go     # or start-typescript, start-python, start-csharp, start-java
 make run
 ```
 
-`make start-<language>` copies a scaffold into `service/`. It already serves the
-route above, parses the request, and has helpers for calling the other services
-over HTTP. The handler body is where your work goes. Starting from scratch in
-another language is fine too, as long as it listens on port 3000.
+`make start-<language>` picks the language you are working in. Your code is
+`service/<language>/`, and you edit it in place. It already serves the route
+above, parses the request, and has helpers for calling the other services over
+HTTP. The handler body is where your work goes. Starting from scratch in another
+language is fine too: make a directory under `service/`, put its name in
+`.service`, and listen on port 3000.
 
 ## Incoming Fleet request
 
@@ -70,7 +72,7 @@ Seconds of staleness are fine. Minutes are not.
 ## Commands
 
 ```
-make run          # start your service from service/
+make run          # start your service
 make test         # run your tests
 make verify       # the partner's conformance suite, run against your service
 make state        # what the fleet sent, and what the partner and bus have seen
@@ -89,9 +91,9 @@ in this directory on the host, so your editor works normally.
 
 ## Scaffolds
 
-Optional, one per language, and nothing needs installing. Each serves the route
-and `GET /health` on port 3000, parses the body and the change id, and has
-`get` / `put` / `post` helpers for the other services.
+Optional, one per language under `service/`, and nothing needs installing. Each
+serves the route and `GET /health` on port 3000, parses the body and the change
+id, and has `get` / `put` / `post` helpers for the other services.
 
 | Language | Start | Runs as | `make test` runs |
 |---|---|---|---|
@@ -102,13 +104,13 @@ and `GET /health` on port 3000, parses the body and the change id, and has
 | Java | `make start-java` | `java Server.java` | JUnit 5 |
 
 The TypeScript one is real TypeScript. Node runs it directly, `@types/node` is
-vendored so your editor works offline, and `tsc --noEmit` is on the path.
+checked in so your editor works offline, and `tsc --noEmit` is on the path.
 
 The Java one uses Gson, since the JDK has no JSON. The jar is in the image and
 already on the classpath, so `import com.google.gson.Gson` just works.
 
-For C#, `make test` expects a project in `service/tests`, which you can create
-with `dotnet new xunit -o tests` from `make shell`.
+For C#, `make test` expects a project in `service/csharp/tests`, which you can
+create with `dotnet new xunit -o tests` from `make shell`.
 
 ## Reference
 

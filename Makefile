@@ -11,34 +11,35 @@ up:
 	@echo "partner-supply   http://localhost:4002"
 	@echo "event-bus        http://localhost:4003"
 	@echo ""
-	@echo "run 'make start-<language>' to drop a scaffold into service/"
+	@echo "run 'make start-<language>' to pick a language"
 
 $(addprefix start-,$(SCAFFOLDS)): start-%:
-	@test -z "$$(ls -A service 2>/dev/null)" || { echo "service/ already has files in it, refusing to overwrite"; exit 1; }
-	@mkdir -p service
-	@cp -R scaffolds/$*/. service/
-	@if [ -d service/vendor ]; then mkdir -p service/node_modules && cp -R service/vendor/. service/node_modules/ && rm -rf service/vendor; fi
-	@echo "copied scaffolds/$* into service/"
+	@echo $* > .service
+	@echo "your code is service/$*, edit it in place"
 	@echo "start it with 'make run'"
 
 run:
-	@docker compose exec dev bash -lc 'cd /work/service 2>/dev/null || { echo "service/ is empty, run make start-<language> first"; exit 1; }; \
+	@docker compose exec dev bash -lc 'dir=$$(cat /work/.service 2>/dev/null); \
+	  [ -n "$$dir" ] && [ -d "/work/service/$$dir" ] || { echo "pick a language first: make start-<language>"; exit 1; }; \
+	  cd "/work/service/$$dir"; \
 	  if [ -f go.mod ]; then exec go run .; \
-	  elif [ -f server.ts ]; then exec node --experimental-transform-types --disable-warning=ExperimentalWarning server.ts; \
+	  elif [ -f server.ts ]; then exec node server.ts; \
 	  elif [ -f server.py ]; then exec python3 server.py; \
 	  elif [ -f Server.java ]; then exec java -cp "$$GSON_JAR" Server.java; \
 	  elif [ -f candidate.csproj ]; then exec dotnet run; \
-	  else echo "nothing recognisable in service/"; exit 1; fi'
+	  else echo "nothing recognisable in service/$$dir"; exit 1; fi'
 
 test:
-	@docker compose exec dev bash -lc 'cd /work/service 2>/dev/null || { echo "service/ is empty, run make start-<language> first"; exit 1; }; \
+	@docker compose exec dev bash -lc 'dir=$$(cat /work/.service 2>/dev/null); \
+	  [ -n "$$dir" ] && [ -d "/work/service/$$dir" ] || { echo "pick a language first: make start-<language>"; exit 1; }; \
+	  cd "/work/service/$$dir"; \
 	  if [ -f go.mod ]; then exec go test ./...; \
 	  elif [ -f server.ts ]; then exec node --test; \
 	  elif [ -f server.py ]; then exec pytest -q; \
 	  elif [ -f Server.java ]; then javac -cp "$$JUNIT_JAR:$$GSON_JAR" *.java && exec java -jar "$$JUNIT_JAR" execute --class-path ".:$$GSON_JAR" --scan-class-path --details=summary; \
 	  elif [ -f candidate.csproj ]; then \
 	    if [ -d tests ]; then exec dotnet test tests; else echo "no test project yet: make shell, then dotnet new xunit -o tests"; exit 1; fi; \
-	  else echo "nothing recognisable in service/"; exit 1; fi'
+	  else echo "nothing recognisable in service/$$dir"; exit 1; fi'
 
 shell:
 	docker compose exec dev bash
