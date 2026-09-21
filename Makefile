@@ -37,7 +37,7 @@ test:
 	  elif [ -f server.py ]; then exec pytest -q; \
 	  elif [ -f Server.java ]; then javac -cp "$$JUNIT_JAR:$$GSON_JAR" *.java && exec java -jar "$$JUNIT_JAR" execute --class-path ".:$$GSON_JAR" --scan-class-path --details=summary; \
 	  elif [ -f candidate.csproj ]; then \
-	    if [ -d tests ]; then exec dotnet test tests; else echo "no test project yet: make shell, then dotnet new xunit -o tests"; exit 1; fi; \
+	    if [ -d tests ]; then exec dotnet test tests; else echo "no test project yet. from make shell, in service/csharp:"; echo "  dotnet new xunit -o tests && dotnet add tests reference candidate.csproj"; exit 1; fi; \
 	  else echo "nothing recognisable in service/$(LANGUAGE)"; exit 1; fi'
 
 shell:

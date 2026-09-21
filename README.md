@@ -108,8 +108,13 @@ run it once before you expect your editor to resolve types.
 The Java one uses Gson, since the JDK has no JSON. The jar is in the image and
 already on the classpath, so `import com.google.gson.Gson` just works.
 
-For C#, `make test` expects a project in `service/csharp/tests`, which you can
-create with `dotnet new xunit -o tests` from `make shell`.
+For C#, `make test csharp` expects a project in `service/csharp/tests`. Create it
+once from `make shell`:
+
+```
+cd service/csharp
+dotnet new xunit -o tests && dotnet add tests reference candidate.csproj
+```
 
 ## Reference
 
