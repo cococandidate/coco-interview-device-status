@@ -1,6 +1,12 @@
 SCAFFOLDS := go typescript python csharp java
 
-.PHONY: pull up down shell logs verify reset state run test traffic-on traffic-off $(addprefix start-,$(SCAFFOLDS))
+.PHONY: pull up down shell logs verify reset state run test traffic-on traffic-off $(SCAFFOLDS)
+
+# 'make run go' passes the language as a second goal, which needs a rule of its own
+LANGUAGE := $(word 2,$(MAKECMDGOALS))
+
+$(SCAFFOLDS):
+	@:
 
 pull:
 	docker compose pull
@@ -11,34 +17,28 @@ up:
 	@echo "partner-supply   http://localhost:4002"
 	@echo "event-bus        http://localhost:4003"
 	@echo ""
-	@echo "run 'make start-<language>' to drop a scaffold into service/"
-
-$(addprefix start-,$(SCAFFOLDS)): start-%:
-	@test -z "$$(ls -A service 2>/dev/null)" || { echo "service/ already has files in it, refusing to overwrite"; exit 1; }
-	@mkdir -p service
-	@cp -R scaffolds/$*/. service/
-	@if [ -d service/vendor ]; then mkdir -p service/node_modules && cp -R service/vendor/. service/node_modules/ && rm -rf service/vendor; fi
-	@echo "copied scaffolds/$* into service/"
-	@echo "start it with 'make run'"
+	@echo "run 'make run <language>' to start your service"
 
 run:
-	@docker compose exec dev bash -lc 'cd /work/service 2>/dev/null || { echo "service/ is empty, run make start-<language> first"; exit 1; }; \
+	@test -n "$(LANGUAGE)" || { echo "usage: make run <language>   [$(SCAFFOLDS)]"; exit 1; }
+	@docker compose exec dev bash -lc 'cd "/work/service/$(LANGUAGE)" 2>/dev/null || { echo "no service/$(LANGUAGE) directory"; exit 1; }; \
 	  if [ -f go.mod ]; then exec go run .; \
-	  elif [ -f server.ts ]; then exec node --experimental-transform-types --disable-warning=ExperimentalWarning server.ts; \
+	  elif [ -f server.ts ]; then [ -d node_modules ] || npm install; exec node server.ts; \
 	  elif [ -f server.py ]; then exec python3 server.py; \
 	  elif [ -f Server.java ]; then exec java -cp "$$GSON_JAR" Server.java; \
 	  elif [ -f candidate.csproj ]; then exec dotnet run; \
-	  else echo "nothing recognisable in service/"; exit 1; fi'
+	  else echo "nothing recognisable in service/$(LANGUAGE)"; exit 1; fi'
 
 test:
-	@docker compose exec dev bash -lc 'cd /work/service 2>/dev/null || { echo "service/ is empty, run make start-<language> first"; exit 1; }; \
+	@test -n "$(LANGUAGE)" || { echo "usage: make test <language>   [$(SCAFFOLDS)]"; exit 1; }
+	@docker compose exec dev bash -lc 'cd "/work/service/$(LANGUAGE)" 2>/dev/null || { echo "no service/$(LANGUAGE) directory"; exit 1; }; \
 	  if [ -f go.mod ]; then exec go test ./...; \
-	  elif [ -f server.ts ]; then exec node --test; \
+	  elif [ -f server.ts ]; then [ -d node_modules ] || npm install; exec node --test; \
 	  elif [ -f server.py ]; then exec pytest -q; \
 	  elif [ -f Server.java ]; then javac -cp "$$JUNIT_JAR:$$GSON_JAR" *.java && exec java -jar "$$JUNIT_JAR" execute --class-path ".:$$GSON_JAR" --scan-class-path --details=summary; \
 	  elif [ -f candidate.csproj ]; then \
 	    if [ -d tests ]; then exec dotnet test tests; else echo "no test project yet: make shell, then dotnet new xunit -o tests"; exit 1; fi; \
-	  else echo "nothing recognisable in service/"; exit 1; fi'
+	  else echo "nothing recognisable in service/$(LANGUAGE)"; exit 1; fi'
 
 shell:
 	docker compose exec dev bash
