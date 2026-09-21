@@ -61,26 +61,29 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-def get(url):
-    return call("GET", url)
+DEFAULT_TIMEOUT_MS = 3000
 
 
-def put(url, body=None):
-    return call("PUT", url, body)
+def get(url, timeout_ms=DEFAULT_TIMEOUT_MS):
+    return call("GET", url, timeout_ms=timeout_ms)
 
 
-def post(url, body=None):
-    return call("POST", url, body)
+def put(url, body=None, timeout_ms=DEFAULT_TIMEOUT_MS):
+    return call("PUT", url, body, timeout_ms=timeout_ms)
 
 
-def call(method, url, body=None):
+def post(url, body=None, timeout_ms=DEFAULT_TIMEOUT_MS):
+    return call("POST", url, body, timeout_ms=timeout_ms)
+
+
+def call(method, url, body=None, timeout_ms=DEFAULT_TIMEOUT_MS):
     data = None if body is None else json.dumps(body).encode()
     req = urllib.request.Request(url, data=data, method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
 
     try:
-        with urllib.request.urlopen(req, timeout=5) as res:
+        with urllib.request.urlopen(req, timeout=timeout_ms / 1000) as res:
             raw = res.read()
             return {"status": res.status, "body": json.loads(raw) if raw else None}
     except urllib.error.HTTPError as err:

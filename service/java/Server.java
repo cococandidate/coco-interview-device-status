@@ -92,25 +92,39 @@ public class Server {
         }
     }
 
+    static final long DEFAULT_TIMEOUT_MS = 3000;
+
     static Response get(String url) throws IOException, InterruptedException {
-        return call("GET", url, null);
+        return get(url, DEFAULT_TIMEOUT_MS);
+    }
+
+    static Response get(String url, long timeoutMs) throws IOException, InterruptedException {
+        return call("GET", url, null, timeoutMs);
     }
 
     static Response put(String url, Object body) throws IOException, InterruptedException {
-        return call("PUT", url, body);
+        return put(url, body, DEFAULT_TIMEOUT_MS);
+    }
+
+    static Response put(String url, Object body, long timeoutMs) throws IOException, InterruptedException {
+        return call("PUT", url, body, timeoutMs);
     }
 
     static Response post(String url, Object body) throws IOException, InterruptedException {
-        return call("POST", url, body);
+        return post(url, body, DEFAULT_TIMEOUT_MS);
     }
 
-    static Response call(String method, String url, Object body) throws IOException, InterruptedException {
+    static Response post(String url, Object body, long timeoutMs) throws IOException, InterruptedException {
+        return call("POST", url, body, timeoutMs);
+    }
+
+    static Response call(String method, String url, Object body, long timeoutMs) throws IOException, InterruptedException {
         HttpRequest.BodyPublisher publisher = body == null
                 ? HttpRequest.BodyPublishers.noBody()
                 : HttpRequest.BodyPublishers.ofString(JSON.toJson(body));
 
         HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofSeconds(5))
+                .timeout(Duration.ofMillis(timeoutMs))
                 .method(method, publisher);
 
         if (body != null) {

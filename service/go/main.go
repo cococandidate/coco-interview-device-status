@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -67,18 +68,32 @@ func main() {
 
 // --- plumbing, nothing below here is part of the exercise ---
 
-var httpClient = &http.Client{Timeout: 5 * time.Second}
+const defaultTimeout = 3 * time.Second
+
+var httpClient = &http.Client{}
 
 type Response struct {
 	Status int
 	Body   map[string]any
 }
 
-func Get(url string) (Response, error)            { return call("GET", url, nil) }
-func Put(url string, body any) (Response, error)  { return call("PUT", url, body) }
-func Post(url string, body any) (Response, error) { return call("POST", url, body) }
+func Get(url string, timeout ...time.Duration) (Response, error) {
+	return call("GET", url, nil, timeout...)
+}
 
-func call(method, url string, body any) (Response, error) {
+func Put(url string, body any, timeout ...time.Duration) (Response, error) {
+	return call("PUT", url, body, timeout...)
+}
+
+func Post(url string, body any, timeout ...time.Duration) (Response, error) {
+	return call("POST", url, body, timeout...)
+}
+
+func call(method, url string, body any, timeout ...time.Duration) (Response, error) {
+	deadline := defaultTimeout
+	if len(timeout) > 0 {
+		deadline = timeout[0]
+	}
 	var reader io.Reader
 	if body != nil {
 		encoded, err := json.Marshal(body)
@@ -96,7 +111,10 @@ func call(method, url string, body any) (Response, error) {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	res, err := httpClient.Do(req)
+	ctx, cancel := context.WithTimeout(req.Context(), deadline)
+	defer cancel()
+
+	res, err := httpClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return Response{}, err
 	}

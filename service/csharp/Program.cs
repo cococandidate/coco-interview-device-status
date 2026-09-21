@@ -39,15 +39,17 @@ record Response(int Status, JsonElement? Body);
 
 static class Http
 {
-    static readonly HttpClient Client = new() { Timeout = TimeSpan.FromSeconds(5) };
+    const int DefaultTimeoutMs = 3000;
 
-    public static Task<Response> Get(string url) => Call(HttpMethod.Get, url, null);
+    static readonly HttpClient Client = new() { Timeout = Timeout.InfiniteTimeSpan };
 
-    public static Task<Response> Put(string url, object body) => Call(HttpMethod.Put, url, body);
+    public static Task<Response> Get(string url, int timeoutMs = DefaultTimeoutMs) => Call(HttpMethod.Get, url, null, timeoutMs);
 
-    public static Task<Response> Post(string url, object body) => Call(HttpMethod.Post, url, body);
+    public static Task<Response> Put(string url, object body, int timeoutMs = DefaultTimeoutMs) => Call(HttpMethod.Put, url, body, timeoutMs);
 
-    static async Task<Response> Call(HttpMethod method, string url, object? body)
+    public static Task<Response> Post(string url, object body, int timeoutMs = DefaultTimeoutMs) => Call(HttpMethod.Post, url, body, timeoutMs);
+
+    static async Task<Response> Call(HttpMethod method, string url, object? body, int timeoutMs)
     {
         using var request = new HttpRequestMessage(method, url);
         if (body is not null)
@@ -55,7 +57,8 @@ static class Http
             request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
         }
 
-        using var res = await Client.SendAsync(request);
+        using var cts = new CancellationTokenSource(timeoutMs);
+        using var res = await Client.SendAsync(request, cts.Token);
         var text = await res.Content.ReadAsStringAsync();
 
         return new Response((int)res.StatusCode, string.IsNullOrWhiteSpace(text) ? null : JsonDocument.Parse(text).RootElement.Clone());
