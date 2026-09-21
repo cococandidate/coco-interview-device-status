@@ -67,14 +67,14 @@ to queue up tasks.
 ## Commands
 
 ```
-make run go       # start your service. also typescript, python, csharp, java
-make test go      # run your tests
-make verify       # the partner's conformance suite, run against your service
-make state        # what the fleet sent, and what the partner and bus have seen
+make run go       # starts your service. also typescript, python, csharp, java
+make test go      # runs your tests
+make verify       # runs the partner's conformance suite against your service
+make state        # prints out what the fleet sent, and what the partner and bus have seen
 make reset        # clear partner and bus state between runs
-make traffic-off  # stop the fleet emitting, for a quiet read. traffic-on resumes
+make traffic-on   # starts the fleet traffic emission
+make traffic-off  # stops the fleet traffic emission
 make logs         # logs from the three services
-make shell        # a terminal in the container, for a package install
 ```
 
 `make verify` is the suite the partner runs against integrations before a
