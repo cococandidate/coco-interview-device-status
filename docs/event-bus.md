@@ -41,9 +41,14 @@ points.
 ## Delivery semantics
 
 - **At least once.** A message can arrive more than once.
+- **No ordering.** Deliveries run concurrently, so two messages can arrive in
+  either order, and a message being retried can arrive after a newer one.
 - A non-2xx response or a timeout is a failed delivery. The bus retries up to
-  **3 attempts**, 1.5s apart.
+  **6 attempts**, backing off 1s, 2s, 4s, 8s, 16s. A subscriber that is down has
+  about half a minute to come back.
 - After the last attempt the message is **dead-lettered** and not delivered again.
+
+`GET /v1/subscription` reports the current values.
 
 ## `GET /v1/deliveries`
 
