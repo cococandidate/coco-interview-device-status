@@ -5,18 +5,27 @@ a delivery partner's platform. The Fleet service has just started emitting devic
 status changes and nothing consumes them yet. Build the endpoint that receives
 them and keep the partner's view of each robot up to date through their API.
 
-The Fleet service publishes to `POST /v1/devices/{serial}/status` on port 3000.
+The partner's dispatch system reads it continuously and acts on whatever it last
+saw. There is no reconciliation job and no polling fallback, so what you write is
+what it knows.
+
+- Available when it is not: the partner sends an order nobody can pick up, and
+  the customer waits it out.
+- Unavailable when it is not: the robot sits idle and we lose the work.
+
+Seconds of staleness are fine. Minutes are not.
+
+## Setup
 
 ```
 make up                # the three services you depend on
 make run typescript    # or go, python, csharp, java
 ```
 
-Your code is `service/<language>/`, and you edit it in place. It already serves
-the route above, parses the request, and has helpers for calling the other
-services over HTTP. The handler body is where your work goes. Starting from
-scratch in another language is fine too: make a directory under `service/` and
-`make run <its name>`, as long as it listens on port 3000.
+Your code is `service/<language>/`, and you edit it in place. It includes a handler to handle
+the Fleet service's request, parses the request, and has helpers for calling the other
+services over HTTP.
+
 
 ## Incoming Fleet request
 
@@ -37,6 +46,10 @@ reasons the robot cannot take work. `X-Change-Id` is unique per state change.
 
 The Fleet service starts sending changes as soon as your service is listening.
 
+- It times out at **500ms** and ignores your response body. Any 2xx means delivered.
+- On a 5xx or a timeout it retries twice, then **drops the update**.
+- One call per state change.
+
 ## Partner integration
 
 For every status change, the partner's record for that robot ends up matching
@@ -46,26 +59,10 @@ whether the robot can currently take work. That means:
 2. Map our serial to the partner's vehicle id. `docs/partner-supply-api.md`.
 3. Write the availability to the partner. Same doc.
 
+## Optional: Event Bus
+
 `docs/event-bus.md` describes a queue that is available to you, should you want
 to queue up tasks.
-
-## How the Fleet service calls the Integration service
-
-- It times out at **500ms** and ignores your response body. Any 2xx means delivered.
-- On a 5xx or a timeout it retries twice, then **drops the update**.
-- One call per state change.
-
-## Why the record has to be right
-
-The partner's dispatch system reads it continuously and acts on whatever it last
-saw. There is no reconciliation job and no polling fallback, so what you write is
-what it knows.
-
-- Available when it is not: the partner sends an order nobody can pick up, and
-  the customer waits it out.
-- Unavailable when it is not: the robot sits idle and we lose the work.
-
-Seconds of staleness are fine. Minutes are not.
 
 ## Commands
 
@@ -87,53 +84,11 @@ Everything runs in a container that shares a network with the three services, so
 `localhost:4001` and friends work exactly as the docs describe. Your code lives
 in this directory on the host, so your editor works normally.
 
-## Scaffolds
-
-Optional, one per language under `service/`. Each serves the route and
-`GET /health` on port 3000, parses the body and the change id, and has
-`get` / `put` / `post` helpers for the other services.
-
-| Language | Start | Runs as | `make test <lang>` runs |
-|---|---|---|---|
-| TypeScript / Node | `make run typescript` | `node server.ts` | `node --test` |
-| Go | `make run go` | `go run .` | `go test ./...` |
-| Python | `make run python` | `python3 server.py` | `pytest` |
-| C# | `make run csharp` | `dotnet run` | `dotnet test tests` |
-| Java | `make run java` | `java Server.java` | JUnit 5 |
-
-The TypeScript one is real TypeScript. Node runs it directly and `tsc --noEmit`
-is on the path. `make run typescript` installs `@types/node` the first time, so
-run it once before you expect your editor to resolve types.
-
-The Java one uses Gson, since the JDK has no JSON. The jar is in the image and
-already on the classpath, so `import com.google.gson.Gson` just works.
-
-For C#, `make test csharp` expects a project in `service/csharp/tests`. Create it
-once from `make shell`:
-
-```
-cd service/csharp
-dotnet new xunit -o tests && dotnet add tests reference candidate.csproj
-```
-
-## Reference
-
-```
-docs/fleet-api.md              device state and the availability rule
-docs/partner-supply-api.md     the partner platform
-docs/event-bus.md              a queue with an HTTP front door
-```
-
-The three services are black boxes. Their source is not in this repo, and the
-docs are everything we know about them. They behave the same way every time.
-
 ## When you are done
 
 Push a branch and open a pull request. Write the description yourself, there is
 no template. Your interviewer will read it the way they would read a real PR from
 a teammate, before they read the diff.
-
-Leave yourself ten minutes for it.
 
 ## Scope
 
