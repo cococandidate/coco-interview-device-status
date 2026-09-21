@@ -8,17 +8,15 @@ them and keep the partner's view of each robot up to date through their API.
 The Fleet service publishes to `POST /v1/devices/{serial}/status` on port 3000.
 
 ```
-make up           # the three services you depend on
-make start-go     # or start-typescript, start-python, start-csharp, start-java
-make run
+make up                # the three services you depend on
+make run typescript    # or go, python, csharp, java
 ```
 
-`make start-<language>` picks the language you are working in. Your code is
-`service/<language>/`, and you edit it in place. It already serves the route
-above, parses the request, and has helpers for calling the other services over
-HTTP. The handler body is where your work goes. Starting from scratch in another
-language is fine too: make a directory under `service/`, put its name in
-`.service`, and listen on port 3000.
+Your code is `service/<language>/`, and you edit it in place. It already serves
+the route above, parses the request, and has helpers for calling the other
+services over HTTP. The handler body is where your work goes. Starting from
+scratch in another language is fine too: make a directory under `service/` and
+`make run <its name>`, as long as it listens on port 3000.
 
 ## Incoming Fleet request
 
@@ -72,8 +70,8 @@ Seconds of staleness are fine. Minutes are not.
 ## Commands
 
 ```
-make run          # start your service
-make test         # run your tests
+make run go       # start your service. also typescript, python, csharp, java
+make test go      # run your tests
 make verify       # the partner's conformance suite, run against your service
 make state        # what the fleet sent, and what the partner and bus have seen
 make reset        # clear partner and bus state between runs
@@ -91,20 +89,21 @@ in this directory on the host, so your editor works normally.
 
 ## Scaffolds
 
-Optional, one per language under `service/`, and nothing needs installing. Each
-serves the route and `GET /health` on port 3000, parses the body and the change
-id, and has `get` / `put` / `post` helpers for the other services.
+Optional, one per language under `service/`. Each serves the route and
+`GET /health` on port 3000, parses the body and the change id, and has
+`get` / `put` / `post` helpers for the other services.
 
-| Language | Start | Runs as | `make test` runs |
+| Language | Start | Runs as | `make test <lang>` runs |
 |---|---|---|---|
-| TypeScript / Node | `make start-typescript` | `node server.ts` | `node --test` |
-| Go | `make start-go` | `go run .` | `go test ./...` |
-| Python | `make start-python` | `python3 server.py` | `pytest` |
-| C# | `make start-csharp` | `dotnet run` | `dotnet test tests` |
-| Java | `make start-java` | `java Server.java` | JUnit 5 |
+| TypeScript / Node | `make run typescript` | `node server.ts` | `node --test` |
+| Go | `make run go` | `go run .` | `go test ./...` |
+| Python | `make run python` | `python3 server.py` | `pytest` |
+| C# | `make run csharp` | `dotnet run` | `dotnet test tests` |
+| Java | `make run java` | `java Server.java` | JUnit 5 |
 
-The TypeScript one is real TypeScript. Node runs it directly, `@types/node` is
-checked in so your editor works offline, and `tsc --noEmit` is on the path.
+The TypeScript one is real TypeScript. Node runs it directly and `tsc --noEmit`
+is on the path. `make run typescript` installs `@types/node` the first time, so
+run it once before you expect your editor to resolve types.
 
 The Java one uses Gson, since the JDK has no JSON. The jar is in the image and
 already on the classpath, so `import com.google.gson.Gson` just works.
