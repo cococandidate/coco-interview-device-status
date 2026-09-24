@@ -1,4 +1,8 @@
-import amqp, { type Channel, type ConsumeMessage } from "amqplib";
+import amqp, { type Channel } from "amqplib";
+import { handleStatusChange } from "./handler.ts";
+import { get, put } from "./http.ts";
+import { PartnerClient } from "./partner.ts";
+import { StatusTracker } from "./tracker.ts";
 
 export const config = {
   amqpUrl: process.env.AMQP_URL ?? "amqp://guest:guest@localhost:5672/",
@@ -7,35 +11,23 @@ export const config = {
   partnerUrl: process.env.PARTNER_URL ?? "http://localhost:4002",
 };
 
-export interface StatusChange {
-  serial: string;
-  status: "ONLINE" | "OFFLINE";
-  limitingFactors: string[];
-  observedAt: string;
-}
-
-async function handleStatusChange(msg: ConsumeMessage): Promise<void> {
-  const change: StatusChange = JSON.parse(msg.content.toString());
-
-  console.log(
-    `change=${msg.properties.messageId} serial=${change.serial} status=${change.status} ` +
-      `factors=${change.limitingFactors} redelivered=${msg.fields.redelivered}`,
-  );
-
-  // TODO: the steps in the README go here.
-}
-
 async function main(): Promise<void> {
   const channel = await connect();
   await channel.prefetch(1);
+
+  const deps = {
+    tracker: new StatusTracker(),
+    partner: new PartnerClient(config.partnerUrl, { get, put }),
+  };
 
   console.log(`consuming ${config.queue}`);
 
   await channel.consume(config.queue, async (msg) => {
     if (msg === null) return;
     try {
-      await handleStatusChange(msg);
-      channel.ack(msg);
+      const outcome = await handleStatusChange(msg.properties.messageId, msg.content.toString(), deps);
+      if (outcome === "ack") channel.ack(msg);
+      else channel.nack(msg, false, outcome === "requeue");
     } catch (err) {
       console.error(`message ${msg.properties.messageId} failed:`, err);
       channel.nack(msg, false, false);
@@ -60,35 +52,4 @@ async function connect(): Promise<Channel> {
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
-}
-
-const DEFAULT_TIMEOUT_MS = 3000;
-
-export interface HttpResponse<T = unknown> {
-  status: number;
-  body: T | undefined;
-}
-
-export async function get<T = unknown>(url: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<HttpResponse<T>> {
-  return await call<T>("GET", url, undefined, timeoutMs);
-}
-
-export async function put<T = unknown>(url: string, body: unknown, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<HttpResponse<T>> {
-  return await call<T>("PUT", url, body, timeoutMs);
-}
-
-export async function post<T = unknown>(url: string, body: unknown, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<HttpResponse<T>> {
-  return await call<T>("POST", url, body, timeoutMs);
-}
-
-async function call<T>(method: string, url: string, body: unknown, timeoutMs: number): Promise<HttpResponse<T>> {
-  const res = await fetch(url, {
-    method,
-    headers: body === undefined ? {} : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-
-  const text = await res.text();
-  return { status: res.status, body: text ? (JSON.parse(text) as T) : undefined };
 }
