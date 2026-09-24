@@ -102,27 +102,14 @@ of what you produce.
 
 ## Setting up a machine
 
-Two images. The toolchain image is public and pulls with no credentials. The
-stack image is private, because it contains the three services and the
-conformance suite, so it is side loaded from a file rather than pulled. The
-interview laptop therefore never needs a GitHub login or a stored token.
+Both images are public, so nothing here needs a GitHub login or a token.
 
-On a machine that can reach the private package, once per stack change:
-
-```
-docker pull ghcr.io/cocorobotics/coco-interview-stack:latest
-make save-stack          # writes stack.tar.gz, about 7MB
-```
-
-On the interview laptop, once per machine:
+Once per machine:
 
 ```
 gh repo clone cocorobotics/coco-interview-device-status
 cd coco-interview-device-status
-
-# drop stack.tar.gz in this directory, then
-make load-stack
-make pull                # the 2.5GB toolchain image, public, no auth
+make pull
 ```
 
 The morning of:

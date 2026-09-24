@@ -1,6 +1,6 @@
 SCAFFOLDS := go typescript python csharp java
 
-.PHONY: pull save-stack load-stack up down shell logs verify reset state run test traffic-on traffic-off $(SCAFFOLDS)
+.PHONY: pull up down shell logs verify reset state run test traffic-on traffic-off $(SCAFFOLDS)
 
 # 'make run go' passes the language as a second goal, which needs a rule of its own
 LANGUAGE := $(word 2,$(MAKECMDGOALS))
@@ -8,18 +8,8 @@ LANGUAGE := $(word 2,$(MAKECMDGOALS))
 $(SCAFFOLDS):
 	@:
 
-# The stack image is private and carries the exercise, so it is side loaded
-# rather than pulled. Only the toolchain image comes from the registry.
 pull:
-	docker compose pull dev
-
-save-stack:
-	@docker save ghcr.io/cocorobotics/coco-interview-stack:latest | gzip > stack.tar.gz
-	@echo "wrote stack.tar.gz ($$(du -h stack.tar.gz | cut -f1 | tr -d ' '))"
-
-load-stack:
-	@test -f stack.tar.gz || { echo "stack.tar.gz not found, see the setup section of the README"; exit 1; }
-	@gunzip -c stack.tar.gz | docker load
+	docker compose pull
 
 up:
 	docker compose up -d
