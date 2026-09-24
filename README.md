@@ -102,16 +102,40 @@ of what you produce.
 
 ## Setting up a machine
 
-Once per machine, before an interview:
+Two images. The toolchain image is public and pulls with no credentials. The
+stack image is private, because it contains the three services and the
+conformance suite, so it is side loaded from a file rather than pulled. The
+interview laptop therefore never needs a GitHub login or a stored token.
+
+On a machine that can reach the private package, once per stack change:
 
 ```
-echo $GITHUB_TOKEN | docker login ghcr.io -u <user> --password-stdin
-make pull
+docker pull ghcr.io/cocorobotics/coco-interview-stack:latest
+make save-stack          # writes stack.tar.gz, about 7MB
+```
+
+On the interview laptop, once per machine:
+
+```
+gh repo clone cocorobotics/coco-interview-device-status
+cd coco-interview-device-status
+
+# drop stack.tar.gz in this directory, then
+make load-stack
+make pull                # the 2.5GB toolchain image, public, no auth
+```
+
+The morning of:
+
+```
+git checkout main && git pull && git clean -fd
 make up
+
 curl localhost:4001/v1/health
 curl localhost:4002/v1/health
 curl localhost:4003/v1/health
 ```
 
-The token needs `read:packages`. Both images are multi-arch, so Apple Silicon and
-x86 machines pull the same tags.
+Leave the stack running and the repo open in the editor before they sit down.
+For TypeScript, run `make run typescript` once and stop it, so `node_modules` is
+already installed.

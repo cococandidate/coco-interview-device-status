@@ -10,3 +10,4 @@ venv/
 *.pyc
 .env
 .DS_Store
+stack.tar.gz
