@@ -1,9 +1,35 @@
 # device-status integration
 
 You are building the Integrations service, which sits between our robot fleet and
-a delivery partner's platform. The Fleet service has just started emitting device
-status changes and nothing consumes them yet. Build the endpoint that receives
-them and keep the partner's view of each robot up to date through their API.
+a delivery partner's platform. The Fleet service has just started publishing
+device status changes and nothing consumes them yet. Build the consumer and keep
+the partner's view of each robot up to date through their API.
+
+The Fleet service publishes to the `device-status` queue on RabbitMQ. The
+exchange, queue and dead letter path already exist.
+
+```
+make up
+make run go       # or typescript, python, csharp, java
+```
+
+Each scaffold already connects, consumes `device-status`, parses the message and
+acks it. The handler body is where your work goes. Starting from scratch in
+another language is fine too, as long as it consumes that queue.
+
+## Partner integration
+
+For every status change, the partner's record for that robot ends up matching
+whether the robot can currently take work. That means:
+
+1. Decide whether the robot is available. `docs/fleet-api.md` has the rule.
+2. Map our serial to the partner's vehicle id. `docs/partner-supply-api.md`.
+3. Write the availability to the partner. Same doc.
+
+`docs/device-status-queue.md` has the message shape and the delivery semantics.
+They are worth reading before you design around them.
+
+## Why the record has to be right
 
 The partner's dispatch system reads it continuously and acts on whatever it last
 saw. There is no reconciliation job and no polling fallback, so what you write is
@@ -15,80 +41,69 @@ what it knows.
 
 Seconds of staleness are fine. Minutes are not.
 
-## Setup
-
-```
-make up                # the three services you depend on
-make run typescript    # or go, python, csharp, java
-```
-
-Your code is `service/<language>/`, and you edit it in place. It includes a handler to handle
-the Fleet service's request, parses the request, and has helpers for calling the other
-services over HTTP.
-
-
-## Incoming Fleet request
-
-```
-POST /v1/devices/C10393/status
-Content-Type: application/json
-X-Change-Id: chg_01J8ZQ4M7XN2VB
-
-{
-  "status": "ONLINE",
-  "limitingFactors": ["LOW_BATTERY"],
-  "observedAt": "2026-09-18T17:02:11Z"
-}
-```
-
-`status` is `ONLINE` or `OFFLINE`. `limitingFactors` is a possibly empty list of
-reasons the robot cannot take work. `X-Change-Id` is unique per state change.
-
-The Fleet service starts sending changes as soon as your service is listening.
-
-- It times out at **500ms** and ignores your response body. Any 2xx means delivered.
-- On a 5xx or a timeout it retries twice, then **drops the update**.
-- One call per state change.
-
-## Partner integration
-
-For every status change, the partner's record for that robot ends up matching
-whether the robot can currently take work. That means:
-
-1. Decide whether the robot is available. `docs/fleet-api.md` has the rule.
-2. Map our serial to the partner's vehicle id. `docs/partner-supply-api.md`.
-3. Write the availability to the partner. Same doc.
-
-## Optional: Event Bus
-
-`docs/event-bus.md` describes a queue that is available to you, should you want
-to queue up tasks.
-
 ## Commands
 
 ```
-make run go       # starts your service. also typescript, python, csharp, java
-make test go      # runs your tests
-make verify       # runs the partner's conformance suite against your service
-make state        # prints out what the fleet sent, and what the partner and bus have seen
-make reset        # clear partner and bus state between runs
-make traffic-on   # starts the fleet traffic emission
-make traffic-off  # stops the fleet traffic emission
-make logs         # logs from the three services
+make run go       # start your consumer. also typescript, python, csharp, java
+make test go      # run your tests
+make verify       # the partner's conformance suite
+make state        # queue depth, what the fleet published, what the partner saw
+make reset        # clear partner state and purge the queues
+make traffic-off  # stop the fleet publishing, for a quiet read. traffic-on resumes
+make logs         # logs from the fleet and partner services
+make shell        # a terminal in the container, for a package install
 ```
 
 `make verify` is the suite the partner runs against integrations before a
 release. It is a release gate, not a specification.
 
-Everything runs in a container that shares a network with the three services, so
-`localhost:4001` and friends work exactly as the docs describe. Your code lives
-in this directory on the host, so your editor works normally.
+Everything runs in a container that shares a network with the broker and the two
+services, so `localhost:5672` and `localhost:4001` work exactly as the docs
+describe. Your code lives in this directory on the host, so your editor works
+normally.
+
+## Scaffolds
+
+One per language, with the AMQP client already installed in the container.
+
+| Language | Start | Runs as | `make test <lang>` runs |
+|---|---|---|---|
+| TypeScript / Node | `make run typescript` | `node server.ts` | `node --test` |
+| Go | `make run go` | `go run .` | `go test ./...` |
+| Python | `make run python` | `python3 server.py` | `pytest` |
+| C# | `make run csharp` | `dotnet run` | `dotnet test tests` |
+| Java | `make run java` | `javac && java Server` | JUnit 5 |
+
+The TypeScript one is real TypeScript. Node runs it directly and `tsc --noEmit`
+is on the path.
+
+For C#, `make test csharp` expects a project in `service/csharp/tests`. Create it
+once from `make shell`:
+
+```
+cd service/csharp
+dotnet new xunit -o tests && dotnet add tests reference candidate.csproj
+```
+
+## Reference
+
+```
+docs/device-status-queue.md    the queue, the message and its delivery semantics
+docs/fleet-api.md              device state and the availability rule
+docs/partner-supply-api.md     the partner platform
+```
+
+The fleet and partner services are black boxes. Their source is not in this repo,
+and the docs are everything we know about them. They behave the same way every
+time.
 
 ## When you are done
 
 Push a branch and open a pull request. Write the description yourself, there is
 no template. Your interviewer will read it the way they would read a real PR from
 a teammate, before they read the diff.
+
+Leave yourself ten minutes for it.
 
 ## Scope
 
@@ -120,7 +135,6 @@ make up
 
 curl localhost:4001/v1/health
 curl localhost:4002/v1/health
-curl localhost:4003/v1/health
 ```
 
 Leave the stack running and the repo open in the editor before they sit down.

@@ -1,64 +1,54 @@
 import json
 import os
-import re
 import sys
+import time
 import urllib.error
 import urllib.request
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import pika
 
 CONFIG = {
-    "port": int(os.environ.get("PORT", "3000")),
+    "amqp_url": os.environ.get("AMQP_URL", "amqp://guest:guest@localhost:5672/"),
+    "queue": os.environ.get("QUEUE", "device-status"),
     "fleet_url": os.environ.get("FLEET_URL", "http://localhost:4001"),
     "partner_url": os.environ.get("PARTNER_URL", "http://localhost:4002"),
-    "bus_url": os.environ.get("BUS_URL", "http://localhost:4003"),
 }
 
-STATUS_CHANGE = re.compile(r"^/v1/devices/([^/]+)/status$")
+
+def handle_status_change(channel, method, properties, body):
+    change = json.loads(body)
+
+    print(
+        f"change={properties.message_id} serial={change['serial']} "
+        f"status={change['status']} factors={change['limitingFactors']} "
+        f"redelivered={method.redelivered}"
+    )
+
+    # TODO: the steps in the README go here.
+
+    channel.basic_ack(method.delivery_tag)
 
 
-class Handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        match = STATUS_CHANGE.match(self.path)
-        if match:
-            return self.handle_status_change(match.group(1))
-        self.send_json(404, {"error": "not found", "path": self.path})
+def main():
+    channel = connect()
+    channel.basic_qos(prefetch_count=1)
+    channel.basic_consume(CONFIG["queue"], handle_status_change)
+    print(f"consuming {CONFIG['queue']}")
+    channel.start_consuming()
 
-    def do_GET(self):
-        if self.path == "/health":
-            return self.send_json(200, {"status": "ok"})
-        self.send_json(404, {"error": "not found", "path": self.path})
 
-    def handle_status_change(self, serial):
-        change_id = self.headers.get("X-Change-Id")
-        change = self.read_json() or {}
+# --- plumbing, nothing below here is part of the exercise ---
 
-        print(
-            f"change={change_id} serial={serial} "
-            f"status={change.get('status')} factors={change.get('limitingFactors')}"
-        )
 
-        # TODO: the three steps in the README go here.
-
-        self.send_json(200, {"status": "ok"})
-
-    # --- plumbing, nothing below here is part of the exercise ---
-
-    def read_json(self):
-        length = int(self.headers.get("Content-Length") or 0)
-        if length == 0:
-            return None
-        return json.loads(self.rfile.read(length))
-
-    def send_json(self, code, body):
-        payload = json.dumps(body).encode()
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
-
-    def log_message(self, fmt, *args):
-        pass
+def connect():
+    for attempt in range(1, 31):
+        try:
+            conn = pika.BlockingConnection(pika.URLParameters(CONFIG["amqp_url"]))
+            return conn.channel()
+        except Exception:
+            if attempt >= 30:
+                raise
+            time.sleep(1)
 
 
 DEFAULT_TIMEOUT_MS = 3000
@@ -93,5 +83,4 @@ def call(method, url, body=None, timeout_ms=DEFAULT_TIMEOUT_MS):
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(line_buffering=True)
-    print(f"listening on :{CONFIG['port']}")
-    ThreadingHTTPServer(("", CONFIG["port"]), Handler).serve_forever()
+    main()

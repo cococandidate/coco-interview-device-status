@@ -2,8 +2,8 @@
 
 `http://localhost:4001`
 
-Owns device state for the fleet. Read-only to us, and it calls our
-endpoint whenever a device changes state.
+Owns device state for the fleet. It publishes a message whenever a device
+changes state, described in `docs/device-status-queue.md`.
 
 ## Availability rule
 
@@ -56,12 +56,12 @@ Every seeded device. Useful for finding serials to test with.
 
 ## `GET /v1/_debug/emitted`
 
-The last 60 status changes the fleet sent you, with how many attempts each took
-and whether it was delivered or dropped. Not part of the real fleet API. It is
-here so you can see what reached you and what did not.
+The last 60 status changes the fleet published, and how many copies of each went
+out. Not part of the real fleet API. It is here so you can compare what was sent
+against what you handled.
 
 ## `POST /v1/_debug/traffic`
 
-`{"enabled": false}` stops the fleet emitting, `true` starts it again.
+`{"enabled": false}` stops the fleet publishing, `true` starts it again.
 
 ## `GET /v1/health`

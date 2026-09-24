@@ -1,81 +1,86 @@
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+import com.rabbitmq.client.Delivery;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class Server {
 
-    static final int PORT = Integer.parseInt(envOr("PORT", "3000"));
+    static final String AMQP_URL = envOr("AMQP_URL", "amqp://guest:guest@localhost:5672/");
+    static final String QUEUE = envOr("QUEUE", "device-status");
     static final String FLEET_URL = envOr("FLEET_URL", "http://localhost:4001");
     static final String PARTNER_URL = envOr("PARTNER_URL", "http://localhost:4002");
-    static final String BUS_URL = envOr("BUS_URL", "http://localhost:4003");
 
-    static final Pattern STATUS_CHANGE = Pattern.compile("^/v1/devices/([^/]+)/status$");
-
-    record StatusChange(String status, List<String> limitingFactors, String observedAt) {
+    record StatusChange(String serial, String status, String[] limitingFactors, String observedAt) {
     }
 
-    static void handleStatusChange(HttpExchange exchange, String serial) throws IOException {
-        String changeId = exchange.getRequestHeaders().getFirst("X-Change-Id");
-        StatusChange change = JSON.fromJson(readBody(exchange), StatusChange.class);
+    static void handleStatusChange(Channel channel, Delivery delivery) throws IOException {
+        String messageId = delivery.getProperties().getMessageId();
+        StatusChange change = JSON.fromJson(
+                new String(delivery.getBody(), StandardCharsets.UTF_8), StatusChange.class);
 
-        System.out.printf("change=%s serial=%s status=%s factors=%s%n",
-                changeId, serial, change.status(), change.limitingFactors());
+        System.out.printf("change=%s serial=%s status=%s factors=%s redelivered=%s%n",
+                messageId, change.serial(), change.status(),
+                String.join(",", change.limitingFactors()), delivery.getEnvelope().isRedeliver());
 
-        // TODO: the three steps in the README go here.
+        // TODO: the steps in the README go here.
 
-        sendJson(exchange, 200, Map.of("status", "ok"));
+        channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
     }
 
-    public static void main(String[] args) throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
-        server.setExecutor(Executors.newFixedThreadPool(16));
+    public static void main(String[] args) throws Exception {
+        Channel channel = connect();
+        channel.basicQos(1);
 
-        server.createContext("/", exchange -> {
-            String method = exchange.getRequestMethod();
-            String path = exchange.getRequestURI().getPath();
-
+        DeliverCallback onDelivery = (consumerTag, delivery) -> {
             try {
-                Matcher match = STATUS_CHANGE.matcher(path);
-                if (method.equals("POST") && match.matches()) {
-                    handleStatusChange(exchange, match.group(1));
-                    return;
-                }
-
-                if (method.equals("GET") && path.equals("/health")) {
-                    sendJson(exchange, 200, Map.of("status", "ok"));
-                    return;
-                }
-
-                sendJson(exchange, 404, Map.of("error", "not found", "path", path));
+                handleStatusChange(channel, delivery);
             } catch (Exception e) {
                 e.printStackTrace();
-                sendJson(exchange, 500, Map.of("error", String.valueOf(e)));
+                channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, false);
             }
-        });
+        };
 
-        System.out.println("listening on :" + PORT);
-        server.start();
+        System.out.println("consuming " + QUEUE);
+        channel.basicConsume(QUEUE, false, onDelivery, consumerTag -> {
+        });
     }
 
     // --- plumbing, nothing below here is part of the exercise ---
 
     static final Gson JSON = new Gson();
+
+    static Channel connect() throws Exception {
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setUri(AMQP_URL);
+        // This client reads a trailing slash as an empty vhost, unlike the others.
+        if (factory.getVirtualHost().isEmpty()) {
+            factory.setVirtualHost("/");
+        }
+        for (int attempt = 1; ; attempt++) {
+            try {
+                Connection conn = factory.newConnection();
+                return conn.createChannel();
+            } catch (Exception e) {
+                if (attempt >= 30) {
+                    throw e;
+                }
+                Thread.sleep(1000);
+            }
+        }
+    }
+
+    static final long DEFAULT_TIMEOUT_MS = 3000;
 
     static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -91,8 +96,6 @@ public class Server {
             return body.getAsJsonObject().get(field).getAsString();
         }
     }
-
-    static final long DEFAULT_TIMEOUT_MS = 3000;
 
     static Response get(String url) throws IOException, InterruptedException {
         return get(url, DEFAULT_TIMEOUT_MS);
@@ -139,19 +142,5 @@ public class Server {
     static String envOr(String key, String fallback) {
         String v = System.getenv(key);
         return (v == null || v.isEmpty()) ? fallback : v;
-    }
-
-    static String readBody(HttpExchange exchange) throws IOException {
-        try (InputStream in = exchange.getRequestBody()) {
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
-    }
-
-    static void sendJson(HttpExchange exchange, int code, Object body) throws IOException {
-        byte[] bytes = JSON.toJson(body).getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(code, bytes.length);
-        exchange.getResponseBody().write(bytes);
-        exchange.close();
     }
 }

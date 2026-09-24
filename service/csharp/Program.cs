@@ -1,45 +1,80 @@
 using System.Text;
 using System.Text.Json;
-
-var builder = WebApplication.CreateBuilder(args);
-builder.Logging.ClearProviders();
-var app = builder.Build();
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 
 var config = new
 {
-    Port = Environment.GetEnvironmentVariable("PORT") ?? "3000",
+    AmqpUrl = Environment.GetEnvironmentVariable("AMQP_URL") ?? "amqp://guest:guest@localhost:5672/",
+    Queue = Environment.GetEnvironmentVariable("QUEUE") ?? "device-status",
     FleetUrl = Environment.GetEnvironmentVariable("FLEET_URL") ?? "http://localhost:4001",
     PartnerUrl = Environment.GetEnvironmentVariable("PARTNER_URL") ?? "http://localhost:4002",
-    BusUrl = Environment.GetEnvironmentVariable("BUS_URL") ?? "http://localhost:4003",
 };
 
-app.MapPost("/v1/devices/{serial}/status", async (string serial, HttpRequest request) =>
+var channel = Amqp.Connect(config.AmqpUrl);
+channel.BasicQos(0, 1, false);
+
+var consumer = new EventingBasicConsumer(channel);
+consumer.Received += (_, delivery) =>
 {
-    var changeId = request.Headers["X-Change-Id"].ToString();
-    var change = await request.ReadFromJsonAsync<StatusChange>();
+    try
+    {
+        HandleStatusChange(delivery);
+        channel.BasicAck(delivery.DeliveryTag, false);
+    }
+    catch (Exception e)
+    {
+        Console.Error.WriteLine($"message {delivery.BasicProperties.MessageId} failed: {e}");
+        channel.BasicNack(delivery.DeliveryTag, false, false);
+    }
+};
 
-    Console.WriteLine($"change={changeId} serial={serial} status={change?.Status} factors={string.Join(",", change?.LimitingFactors ?? [])}");
+Console.WriteLine($"consuming {config.Queue}");
+channel.BasicConsume(config.Queue, false, consumer);
+Thread.Sleep(Timeout.Infinite);
 
-    // TODO: the three steps in the README go here.
+void HandleStatusChange(BasicDeliverEventArgs delivery)
+{
+    var change = JsonSerializer.Deserialize<StatusChange>(delivery.Body.Span, Http.JsonOptions)!;
 
-    return Results.Json(new { status = "ok" });
-});
+    Console.WriteLine(
+        $"change={delivery.BasicProperties.MessageId} serial={change.Serial} status={change.Status} " +
+        $"factors={string.Join(",", change.LimitingFactors)} redelivered={delivery.Redelivered}");
 
-app.MapGet("/health", () => Results.Json(new { status = "ok" }));
+    // TODO: the steps in the README go here.
+}
 
-app.Urls.Add($"http://0.0.0.0:{config.Port}");
-Console.WriteLine($"listening on :{config.Port}");
-app.Run();
-
-record StatusChange(string Status, string[] LimitingFactors, string ObservedAt);
+record StatusChange(string Serial, string Status, string[] LimitingFactors, string ObservedAt);
 
 // --- plumbing, nothing below here is part of the exercise ---
+
+static class Amqp
+{
+    public static IModel Connect(string url)
+    {
+        var factory = new ConnectionFactory { Uri = new Uri(url) };
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return factory.CreateConnection().CreateModel();
+            }
+            catch when (attempt < 30)
+            {
+                Thread.Sleep(1000);
+            }
+        }
+    }
+}
 
 record Response(int Status, JsonElement? Body);
 
 static class Http
 {
     const int DefaultTimeoutMs = 3000;
+
+    // Web defaults match the camelCase the services speak.
+    public static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     static readonly HttpClient Client = new() { Timeout = Timeout.InfiniteTimeSpan };
 
@@ -54,7 +89,7 @@ static class Http
         using var request = new HttpRequestMessage(method, url);
         if (body is not null)
         {
-            request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            request.Content = new StringContent(JsonSerializer.Serialize(body, JsonOptions), Encoding.UTF8, "application/json");
         }
 
         using var cts = new CancellationTokenSource(timeoutMs);

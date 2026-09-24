@@ -1,103 +1,94 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import amqp, { type Channel, type ConsumeMessage } from "amqplib";
 
 export const config = {
-  port: Number(process.env.PORT ?? 3000),
+  amqpUrl: process.env.AMQP_URL ?? "amqp://guest:guest@localhost:5672/",
+  queue: process.env.QUEUE ?? "device-status",
   fleetUrl: process.env.FLEET_URL ?? "http://localhost:4001",
   partnerUrl: process.env.PARTNER_URL ?? "http://localhost:4002",
-  busUrl: process.env.BUS_URL ?? "http://localhost:4003",
 };
 
 export interface StatusChange {
+  serial: string;
   status: "ONLINE" | "OFFLINE";
   limitingFactors: string[];
   observedAt: string;
 }
 
-const STATUS_CHANGE = /^\/v1\/devices\/([^/]+)\/status$/;
-
-async function handleStatusChange(
-  req: IncomingMessage,
-  res: ServerResponse,
-  serial: string,
-): Promise<void> {
-  const changeId = req.headers["x-change-id"];
-  const change = await readJson<StatusChange>(req);
+async function handleStatusChange(msg: ConsumeMessage): Promise<void> {
+  const change: StatusChange = JSON.parse(msg.content.toString());
 
   console.log(
-    `change=${changeId} serial=${serial} status=${change?.status} factors=${change?.limitingFactors}`,
+    `change=${msg.properties.messageId} serial=${change.serial} status=${change.status} ` +
+      `factors=${change.limitingFactors} redelivered=${msg.fields.redelivered}`,
   );
 
-  // TODO: the three steps in the README go here.
-
-  sendJson(res, 200, { status: "ok" });
+  // TODO: the steps in the README go here.
 }
 
-export const server = createServer(async (req, res) => {
-  try {
-    const path = (req.url ?? "").split("?")[0];
+async function main(): Promise<void> {
+  const channel = await connect();
+  await channel.prefetch(1);
 
-    const match = req.method === "POST" ? path.match(STATUS_CHANGE) : null;
-    if (match) return await handleStatusChange(req, res, match[1]);
+  console.log(`consuming ${config.queue}`);
 
-    if (req.method === "GET" && path === "/health") {
-      return sendJson(res, 200, { status: "ok" });
+  await channel.consume(config.queue, async (msg) => {
+    if (msg === null) return;
+    try {
+      await handleStatusChange(msg);
+      channel.ack(msg);
+    } catch (err) {
+      console.error(`message ${msg.properties.messageId} failed:`, err);
+      channel.nack(msg, false, false);
     }
-
-    sendJson(res, 404, { error: "not found", method: req.method, path });
-  } catch (err) {
-    console.error(err);
-    sendJson(res, 500, { error: String(err) });
-  }
-});
-
-// Guarded so a test that imports this file does not bind the port.
-if (import.meta.main) {
-  server.listen(config.port, () => {
-    console.log(`listening on :${config.port}`);
   });
 }
 
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+
 // --- plumbing, nothing below here is part of the exercise ---
+
+async function connect(): Promise<Channel> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const conn = await amqp.connect(config.amqpUrl);
+      return await conn.createChannel();
+    } catch (err) {
+      if (attempt >= 30) throw err;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+}
+
+const DEFAULT_TIMEOUT_MS = 3000;
 
 export interface HttpResponse<T = unknown> {
   status: number;
   body: T | undefined;
 }
 
-export async function get<T = unknown>(url: string): Promise<HttpResponse<T>> {
-  return await call<T>("GET", url);
+export async function get<T = unknown>(url: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<HttpResponse<T>> {
+  return await call<T>("GET", url, undefined, timeoutMs);
 }
 
-export async function put<T = unknown>(url: string, body: unknown): Promise<HttpResponse<T>> {
-  return await call<T>("PUT", url, body);
+export async function put<T = unknown>(url: string, body: unknown, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<HttpResponse<T>> {
+  return await call<T>("PUT", url, body, timeoutMs);
 }
 
-export async function post<T = unknown>(url: string, body: unknown): Promise<HttpResponse<T>> {
-  return await call<T>("POST", url, body);
+export async function post<T = unknown>(url: string, body: unknown, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<HttpResponse<T>> {
+  return await call<T>("POST", url, body, timeoutMs);
 }
 
-const REQUEST_TIMEOUT_MS = 5000;
-
-async function call<T>(method: string, url: string, body?: unknown): Promise<HttpResponse<T>> {
+async function call<T>(method: string, url: string, body: unknown, timeoutMs: number): Promise<HttpResponse<T>> {
   const res = await fetch(url, {
     method,
     headers: body === undefined ? {} : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   const text = await res.text();
   return { status: res.status, body: text ? (JSON.parse(text) as T) : undefined };
-}
-
-export async function readJson<T>(req: IncomingMessage): Promise<T | undefined> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
-  if (chunks.length === 0) return undefined;
-  return JSON.parse(Buffer.concat(chunks).toString()) as T;
-}
-
-export function sendJson(res: ServerResponse, code: number, body: unknown): void {
-  res.writeHead(code, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(body));
 }

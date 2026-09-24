@@ -2,7 +2,11 @@
   "name": "candidate",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "amqplib": "^0.10.4"
+  },
   "devDependencies": {
-    "@types/node": "^24.13.6"
+    "@types/node": "^24.13.6",
+    "@types/amqplib": "^0.10.5"
   }
 }

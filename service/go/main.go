@@ -9,18 +9,20 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 var config = struct {
-	Port       string
+	AmqpURL    string
+	Queue      string
 	FleetURL   string
 	PartnerURL string
-	BusURL     string
 }{
-	Port:       envOr("PORT", "3000"),
+	AmqpURL:    envOr("AMQP_URL", "amqp://guest:guest@localhost:5672/"),
+	Queue:      envOr("QUEUE", "device-status"),
 	FleetURL:   envOr("FLEET_URL", "http://localhost:4001"),
 	PartnerURL: envOr("PARTNER_URL", "http://localhost:4002"),
-	BusURL:     envOr("BUS_URL", "http://localhost:4003"),
 }
 
 func envOr(key, fallback string) string {
@@ -31,42 +33,70 @@ func envOr(key, fallback string) string {
 }
 
 type StatusChange struct {
+	Serial          string   `json:"serial"`
 	Status          string   `json:"status"`
 	LimitingFactors []string `json:"limitingFactors"`
 	ObservedAt      string   `json:"observedAt"`
 }
 
-func handleStatusChange(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	changeID := r.Header.Get("X-Change-Id")
-
+func handleStatusChange(d amqp.Delivery) error {
 	var change StatusChange
-	if err := json.NewDecoder(r.Body).Decode(&change); err != nil {
-		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
-		return
+	if err := json.Unmarshal(d.Body, &change); err != nil {
+		return err
 	}
 
-	log.Printf("change=%s serial=%s status=%s factors=%v", changeID, serial, change.Status, change.LimitingFactors)
+	log.Printf("change=%s serial=%s status=%s factors=%v redelivered=%v",
+		d.MessageId, change.Serial, change.Status, change.LimitingFactors, d.Redelivered)
 
-	// TODO: the three steps in the README go here.
+	// TODO: the steps in the README go here.
 
-	sendJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	return nil
 }
 
 func main() {
-	mux := http.NewServeMux()
+	conn, ch := connect()
+	defer conn.Close()
 
-	mux.HandleFunc("POST /v1/devices/{serial}/status", handleStatusChange)
+	if err := ch.Qos(1, 0, false); err != nil {
+		log.Fatalf("qos: %v", err)
+	}
 
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		sendJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	})
+	deliveries, err := ch.Consume(config.Queue, "", false, false, false, false, nil)
+	if err != nil {
+		log.Fatalf("consume %s: %v", config.Queue, err)
+	}
 
-	log.Printf("listening on :%s", config.Port)
-	log.Fatal(http.ListenAndServe(":"+config.Port, mux))
+	log.Printf("consuming %s", config.Queue)
+
+	for d := range deliveries {
+		if err := handleStatusChange(d); err != nil {
+			log.Printf("message %s failed: %v", d.MessageId, err)
+			d.Nack(false, false)
+			continue
+		}
+		d.Ack(false)
+	}
 }
 
 // --- plumbing, nothing below here is part of the exercise ---
+
+func connect() (*amqp.Connection, *amqp.Channel) {
+	for attempt := 1; ; attempt++ {
+		conn, err := amqp.Dial(config.AmqpURL)
+		if err == nil {
+			ch, chErr := conn.Channel()
+			if chErr == nil {
+				return conn, ch
+			}
+			conn.Close()
+			err = chErr
+		}
+		if attempt >= 30 {
+			log.Fatalf("could not reach the broker at %s: %v", config.AmqpURL, err)
+		}
+		time.Sleep(time.Second)
+	}
+}
 
 const defaultTimeout = 3 * time.Second
 
@@ -94,6 +124,7 @@ func call(method, url string, body any, timeout ...time.Duration) (Response, err
 	if len(timeout) > 0 {
 		deadline = timeout[0]
 	}
+
 	var reader io.Reader
 	if body != nil {
 		encoded, err := json.Marshal(body)
@@ -130,10 +161,4 @@ func call(method, url string, body any, timeout ...time.Duration) (Response, err
 		json.Unmarshal(raw, &out.Body)
 	}
 	return out, nil
-}
-
-func sendJSON(w http.ResponseWriter, code int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(body)
 }
