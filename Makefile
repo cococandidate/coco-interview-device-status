@@ -14,7 +14,7 @@ pull:
 up:
 	docker compose up -d
 	@echo "fleet-api        http://localhost:4001"
-	@echo "partner-supply   http://localhost:4002"
+	@echo "deliverme-supply http://localhost:4002"
 	@echo "rabbitmq         localhost:5672, management UI http://localhost:15672 (guest/guest)"
 	@echo ""
 	@echo "run 'make run <language>' to start your service"
@@ -56,7 +56,7 @@ reset:
 	@curl -s -X POST http://localhost:4002/v1/_debug/reset > /dev/null
 	@docker compose exec -T rabbitmq rabbitmqctl purge_queue device-status > /dev/null 2>&1 || true
 	@docker compose exec -T rabbitmq rabbitmqctl purge_queue device-status.dlq > /dev/null 2>&1 || true
-	@echo "partner state cleared and queues purged"
+	@echo "DeliverMe state cleared and queues purged"
 
 traffic-on:
 	@curl -s -X POST -H 'Content-Type: application/json' -d '{"enabled":true}' http://localhost:4001/v1/_debug/traffic > /dev/null
@@ -71,5 +71,5 @@ state:
 	@docker compose exec -T rabbitmq rabbitmqctl list_queues name messages consumers 2>/dev/null | grep -v "^Listing"
 	@echo "--- fleet published ---"
 	@curl -s http://localhost:4001/v1/_debug/emitted
-	@echo "--- partner calls ---"
+	@echo "--- DeliverMe calls ---"
 	@curl -s http://localhost:4002/v1/_debug/calls
