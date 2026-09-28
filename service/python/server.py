@@ -14,9 +14,19 @@ CONFIG = {
     "partner_url": os.environ.get("PARTNER_URL", "http://localhost:4002"),
 }
 
+BLOCKING_FACTORS = {
+    "PILOT_REVIEW",
+    "LOW_BATTERY",
+    "HARDWARE_FAULT",
+    "MAINTENANCE",
+    "OUT_OF_ZONE",
+}
+
 
 def handle_status_change(channel, method, properties, body):
     change = json.loads(body)
+    status = change.get("status")
+    factors = change.get("limitingFactors", [])
 
     print(
         f"change={properties.message_id} serial={change['serial']} "
@@ -24,7 +34,29 @@ def handle_status_change(channel, method, properties, body):
         f"redelivered={method.redelivered}"
     )
 
-    # TODO: the steps in the README go here.
+    # TODO: lock serial to avoid cache conflict
+    # (put the rest of the logic in try/execpt/finally to ensure we unlock)
+    # TODO: check cache to see if a later observedAt was already processed
+
+    available = status == "ONLINE" and not any(f in BLOCKING_FACTORS for f in factors)
+
+    # Assuming `change` is trusted
+    resp = get(f"{CONFIG['partner_url']}/v1/vehicles?serial={change['serial']}")
+    if resp["status"] == 503:
+        print(f"503 from partner, requeuing {properties.message_id}")
+        channel.basic_nack(method.delivery_tag, requeue=True)
+        return
+    
+    if resp["status"] == 404:
+        print(f"404 from partner, sending {properties.message_id} to DLQ")
+        channel.basic_nack(method.delivery_tag, requeue=False)
+        return
+        
+    vehicle_id = resp["body"]["vehicleId"]
+    
+    put(f"{CONFIG['partner_url']}/v1/vehicles/{vehicle_id}/availability", {"available": available})
+
+    # TODO: write updated timestamp to cache
 
     channel.basic_ack(method.delivery_tag)
 

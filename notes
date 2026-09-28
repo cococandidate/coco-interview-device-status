@@ -1,0 +1,11 @@
+- signal that fleet robot is ready
+- forward to partner
+
+
+to do:
+- handle partner API timeouts
+- in-order delivery
+    - store most recent observedAt per device serial
+    - ensure we don't forward availability if observedAt is stale for that serial
+
+
