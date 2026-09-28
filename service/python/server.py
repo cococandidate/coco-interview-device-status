@@ -37,7 +37,6 @@ def handle_status_change(channel, method, properties, body):
     available = status == "ONLINE" and not any(f in BLOCKING_FACTORS for f in factors)
 
     # Assuming `change` is trusted
-    # print(f"GET {CONFIG['partner_url']}/v1/vehicles?serial={change['serial']}")
     resp = get(f"{CONFIG['partner_url']}/v1/vehicles?serial={change['serial']}")
     if resp["status"] == 503:
         print(f"503 from partner, requeuing {properties.message_id}")
@@ -51,7 +50,6 @@ def handle_status_change(channel, method, properties, body):
         
     vehicle_id = resp["body"]["vehicleId"]
     
-    # print(f"PUT {CONFIG['partner_url']}/v1/vehicles/{vehicle_id}/availability")
     put(f"{CONFIG['partner_url']}/v1/vehicles/{vehicle_id}/availability", {"available": available})
 
     channel.basic_ack(method.delivery_tag)
