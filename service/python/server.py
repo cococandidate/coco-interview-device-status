@@ -34,6 +34,10 @@ def handle_status_change(channel, method, properties, body):
         f"redelivered={method.redelivered}"
     )
 
+    # TODO: lock serial to avoid cache conflict
+    # (put the rest of the logic in try/execpt/finally to ensure we unlock)
+    # TODO: check cache to see if a later observedAt was already processed
+
     available = status == "ONLINE" and not any(f in BLOCKING_FACTORS for f in factors)
 
     # Assuming `change` is trusted
@@ -51,6 +55,8 @@ def handle_status_change(channel, method, properties, body):
     vehicle_id = resp["body"]["vehicleId"]
     
     put(f"{CONFIG['partner_url']}/v1/vehicles/{vehicle_id}/availability", {"available": available})
+
+    # TODO: write updated timestamp to cache
 
     channel.basic_ack(method.delivery_tag)
 
