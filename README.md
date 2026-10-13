@@ -86,6 +86,7 @@ Any other limiting factor is informational and does not block.
 | Endpoint | Returns |
 |---|---|
 | `GET /v1/devices/{serial}` | The fleet's current record for a robot: `serial`, `status`, `limitingFactors`, `observedAt`, `hub`. 404 if unknown. |
+| `GET /v1/devices/{serial}/partner-accounts/hangry-hippo` | The robot's HangryHippo account: `serial`, `partner`, `vehicleId`. 404 if the serial is unknown or the robot is not registered with HangryHippo. |
 | `GET /v1/devices` | Every seeded robot. Useful for finding serials to test with. |
 | `GET /v1/health` | |
 
@@ -95,15 +96,7 @@ HangryHippo's platform. We do not own it and we cannot change it.
 
 - A write typically takes **600 to 800ms**.
 - It returns **503** intermittently under load.
-- Vehicle ids are HangryHippo's, not our serials.
-
-**`GET /v1/vehicles?serial={serial}`** maps one of our serials to HangryHippo's
-vehicle id. 404 if the robot is not registered with HangryHippo.
-
-```
-200 OK
-{ "serial": "C10393", "vehicleId": "veh_8f21c4" }
-```
+- Vehicle ids are HangryHippo's, not our serials. Fleet maps one to the other.
 
 **`PUT /v1/vehicles/{vehicleId}/availability`** sets whether HangryHippo may send
 work to that vehicle. 404 if the vehicle id is unknown, 503 when HangryHippo is

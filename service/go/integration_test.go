@@ -2,8 +2,8 @@ package main
 
 import "testing"
 
-func TestIntegrationGivenARobotRegisteredWithHangryHippoWhenItsSerialIsLookedUpThenHangryHippoReturnsItsVehicleId(t *testing.T) {
-	res, err := Get(config.PartnerURL + "/v1/vehicles?serial=C10393")
+func TestIntegrationGivenARobotRegisteredWithHangryHippoWhenTheFleetIsAskedForItsHangryHippoAccountThenItReturnsTheVehicleId(t *testing.T) {
+	res, err := Get(config.FleetURL + "/v1/devices/C10393/partner-accounts/hangry-hippo")
 	if err != nil {
 		t.Fatal(err)
 	}
