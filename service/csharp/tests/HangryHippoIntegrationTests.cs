@@ -1,7 +1,7 @@
 [Trait("Category", "integration")]
-public class DeliverMeIntegrationTests
+public class HangryHippoIntegrationTests
 {
-    [Fact(DisplayName = "given a robot registered with DeliverMe, when its serial is looked up, then DeliverMe returns its vehicle id")]
+    [Fact(DisplayName = "given a robot registered with HangryHippo, when its serial is looked up, then HangryHippo returns its vehicle id")]
     public async Task RegisteredSerialMapsToVehicleId()
     {
         var res = await Http.Get($"{Config.PartnerUrl}/v1/vehicles?serial=C10393");

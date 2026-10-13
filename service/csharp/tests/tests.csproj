@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../candidate.csproj" />
+    <ProjectReference Include="../hangry-hippo.csproj" />
   </ItemGroup>
 
 </Project>

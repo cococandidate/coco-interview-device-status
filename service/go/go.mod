@@ -1,4 +1,4 @@
-module candidate
+module hangry-hippo-integration
 
 go 1.22
 

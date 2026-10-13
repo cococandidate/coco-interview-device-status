@@ -5,10 +5,10 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Tag("integration")
-class DeliverMeIntegrationTest {
+class HangryHippoIntegrationTest {
 
     @Test
-    @DisplayName("given a robot registered with DeliverMe, when its serial is looked up, then DeliverMe returns its vehicle id")
+    @DisplayName("given a robot registered with HangryHippo, when its serial is looked up, then HangryHippo returns its vehicle id")
     void registeredSerialMapsToVehicleId() throws Exception {
         Server.Response res = Server.get(Server.PARTNER_URL + "/v1/vehicles?serial=C10393");
 

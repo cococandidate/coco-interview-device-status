@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func TestIntegrationGivenARobotRegisteredWithDeliverMeWhenItsSerialIsLookedUpThenDeliverMeReturnsItsVehicleId(t *testing.T) {
+func TestIntegrationGivenARobotRegisteredWithHangryHippoWhenItsSerialIsLookedUpThenHangryHippoReturnsItsVehicleId(t *testing.T) {
 	res, err := Get(config.PartnerURL + "/v1/vehicles?serial=C10393")
 	if err != nil {
 		t.Fatal(err)

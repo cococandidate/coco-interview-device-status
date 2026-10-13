@@ -1,7 +1,7 @@
 services:
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    container_name: interview-rabbitmq
+    container_name: hangry-hippo-rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -15,7 +15,7 @@ services:
 
   stack:
     image: ghcr.io/cocorobotics/coco-interview-stack:latest
-    container_name: interview-stack
+    container_name: hangry-hippo-stack
     network_mode: "service:rabbitmq"
     environment:
       AMQP_URL: "amqp://guest:guest@localhost:5672/"
@@ -25,7 +25,7 @@ services:
 
   dev:
     image: ghcr.io/cocorobotics/coco-interview-dev:latest
-    container_name: interview-dev
+    container_name: hangry-hippo-dev
     network_mode: "service:rabbitmq"
     working_dir: /work
     volumes:

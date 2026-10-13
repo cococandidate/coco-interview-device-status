@@ -23,7 +23,7 @@ func quietStack(t *testing.T) {
 	if _, err := ch.QueuePurge(config.Queue, false); err != nil {
 		t.Fatal(err)
 	}
-	// Lets a change your consumer already had in flight land before DeliverMe is cleared.
+	// Lets a change your consumer already had in flight land before HangryHippo is cleared.
 	time.Sleep(2 * time.Second)
 	if _, err := Post(config.PartnerURL+"/v1/_debug/reset", nil); err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func publishChange(t *testing.T, serial, status string, limitingFactors []string
 	}
 }
 
-// Returns nil when DeliverMe has recorded nothing for the vehicle within the timeout.
+// Returns nil when HangryHippo has recorded nothing for the vehicle within the timeout.
 func availabilityOnceWritten(vehicleID string, timeout time.Duration) *bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
@@ -67,13 +67,13 @@ func availabilityOnceWritten(vehicleID string, timeout time.Duration) *bool {
 	return nil
 }
 
-func TestE2EGivenARobotOnlineWithNothingBlockingItWhenTheFleetPublishesThatChangeThenDeliverMeShowsItAvailable(t *testing.T) {
+func TestE2EGivenARobotOnlineWithNothingBlockingItWhenTheFleetPublishesThatChangeThenHangryHippoShowsItAvailable(t *testing.T) {
 	quietStack(t)
 
 	publishChange(t, "C10393", "ONLINE", []string{})
 
 	got := availabilityOnceWritten("veh_8f21c4", 20*time.Second)
 	if got == nil || !*got {
-		t.Fatalf("expected DeliverMe to show veh_8f21c4 available, got %v", got)
+		t.Fatalf("expected HangryHippo to show veh_8f21c4 available, got %v", got)
 	}
 }

@@ -1,76 +1,27 @@
-# device-status integration
+# hangry-hippo-integration
 
-## The problem
+Keeps HangryHippo's view of our robots in sync with the fleet.
 
-Coco's delivery robots take orders from DeliverMe, a food-delivery marketplace.
-Today DeliverMe offers us every order, and we reject the ones our robots cannot
-take.
+HangryHippo is a marketplace for delivering watermelons to hippos at zoos and
+wildlife parks. Its dispatcher offers a run to a vehicle only if we have marked
+that vehicle available, and it trusts whatever we last told it. This service
+consumes the device-status changes our Fleet service publishes, decides whether
+each robot can take work, and writes that to HangryHippo's Supply API.
 
-That is about to change. Once this ships to production, DeliverMe's dispatcher
-will only offer an order to a robot we have marked available, and it believes
-whatever we last told it. There is no reconciliation job and no polling fallback
-on their side, so what we write is what they know.
+**Status:** scaffolding only. Each language skeleton connects, consumes, parses
+and acks, and does nothing else yet.
 
-Our Fleet service has just started publishing a message every time a robot
-changes state (goes offline, runs low on battery, gets pulled for maintenance),
-and nothing consumes those messages yet. You are building that consumer: the
-piece of our Integrations service that keeps DeliverMe's view of each robot
-matching whether it can actually take work.
-
-Getting it wrong costs money in both directions:
-
-- **Shown available when it is not.** DeliverMe sends an order to a robot that
-  cannot go. The customer waits, the restaurant's food goes cold, and we eat the
-  refund and the merchant's trust.
-- **Shown unavailable when it is not.** The robot sits on the curb while
-  DeliverMe hands the order to a human courier. We lose the revenue, and our
-  utilization numbers look worse than the fleet really is.
-
-Seconds of staleness are fine. Minutes are not.
-
-## What to build
-
-For every status change on the `device-status` queue:
-
-1. **Decide whether the robot is available**, using the rule under
-   [Fleet](#fleet-localhost4001).
-2. **Find DeliverMe's vehicle id** for our serial.
-3. **Write the availability** to DeliverMe.
+## Getting started
 
 ```
-make up
+make up           # broker, the Fleet emulator and the HangryHippo sandbox
 make run go       # or typescript, python, csharp, java
 ```
 
-Each scaffold already connects, consumes `device-status`, parses the message and
-acks it. The handler body is where your work goes. Starting from scratch in
-another language is fine too, as long as it consumes that queue.
-
-## When you are done
-
-Push a branch and open a pull request. Write the description yourself, there is
-no template. Your interviewer will read it the way they would read a real PR from
-a teammate who was not in the room, before they read the diff. Alongside what the
-change does, it should say how you would get it into production safely. Leave
-yourself ten minutes for it.
-
-## What we look at
-
-How you work matters more than a complete feature.
-
-- **What you do first.** Most people do not finish everything they would want
-  to, and that is fine. Decide what matters most, do that first, and say what you
-  left out.
-- **How you handle what this page does not say.** Ask your interviewer anything
-  about the domain. Where you have to assume, say so.
-- **What you checked.** The stack is running and publishing. Check what it
-  actually does, not only what this page says.
-- **How you test it.** Test at the levels you think are worth it, and be ready
-  to say why.
-- **Whether you own it.** Use whatever tools you normally use, AI included. We
-  will ask you about any part of what you produce, whoever typed it.
-
----
+We have not settled on a language for this service, so there is a skeleton for
+each one we run elsewhere. They are equivalent; use the one you are most
+productive in. Starting from scratch in another language is fine too, as long as
+it consumes the `device-status` queue.
 
 ## The device-status queue
 
@@ -110,7 +61,7 @@ Delivery semantics, worth reading before you design around them:
   delivery: `redelivered` is false on it, exactly as on the first one.
 - **No ordering.** Nothing guarantees that two changes for the same robot arrive,
   or are handled, in the order the fleet observed them.
-- **Ack or it comes back.** An unacked message is redelivered when your consumer
+- **Ack or it comes back.** An unacked message is redelivered when the consumer
   disconnects. A `basic.nack` with requeue false sends it to `device-status.dlq`,
   where nothing reads it.
 - The fleet publishes continuously while the stack is up, across several robots.
@@ -138,24 +89,24 @@ Any other limiting factor is informational and does not block.
 | `GET /v1/devices` | Every seeded robot. Useful for finding serials to test with. |
 | `GET /v1/health` | |
 
-## DeliverMe Supply API, `localhost:4002`
+## HangryHippo Supply API, `localhost:4002`
 
-DeliverMe's platform. We do not own it and we cannot change it.
+HangryHippo's platform. We do not own it and we cannot change it.
 
 - A write typically takes **600 to 800ms**.
 - It returns **503** intermittently under load.
-- Vehicle ids are DeliverMe's, not our serials.
+- Vehicle ids are HangryHippo's, not our serials.
 
-**`GET /v1/vehicles?serial={serial}`** maps one of our serials to DeliverMe's
-vehicle id. 404 if the robot is not registered with DeliverMe.
+**`GET /v1/vehicles?serial={serial}`** maps one of our serials to HangryHippo's
+vehicle id. 404 if the robot is not registered with HangryHippo.
 
 ```
 200 OK
 { "serial": "C10393", "vehicleId": "veh_8f21c4" }
 ```
 
-**`PUT /v1/vehicles/{vehicleId}/availability`** sets whether DeliverMe may send
-work to that vehicle. 404 if the vehicle id is unknown, 503 when DeliverMe is
+**`PUT /v1/vehicles/{vehicleId}/availability`** sets whether HangryHippo may send
+work to that vehicle. 404 if the vehicle id is unknown, 503 when HangryHippo is
 shedding load.
 
 ```
@@ -165,59 +116,59 @@ PUT /v1/vehicles/veh_8f21c4/availability
 204 No Content
 ```
 
-**`GET /v1/vehicles/{vehicleId}/availability`** is what DeliverMe currently
+**`GET /v1/vehicles/{vehicleId}/availability`** is what HangryHippo currently
 believes. 404 before anything has been written.
 
 ## Commands
 
 ```
-make run go              # start your consumer. also typescript, python, csharp, java
-make test go             # your unit tests
-make test go integration # your integration tests
-make test go e2e         # your end to end tests, against the whole stack
-make state               # queue depth, what the fleet published, what DeliverMe received
-make reset               # clear DeliverMe's state and purge the queues
+make run go              # start the consumer. also typescript, python, csharp, java
+make test go             # unit tests
+make test go integration # integration tests
+make test go e2e         # end to end tests, against the whole stack
+make state               # queue depth, what the fleet published, what HangryHippo received
+make reset               # clear HangryHippo's state and purge the queues
 make traffic-off         # stop the fleet publishing, for a quiet read. traffic-on resumes
-make logs                # logs from the fleet and DeliverMe services
+make logs                # logs from the Fleet emulator and the HangryHippo sandbox
 make shell               # a terminal in the container, for a package install
 ```
 
 Everything runs in a container that shares a network with the broker and the two
-services, so the `localhost` addresses above work exactly as written. Your code
-lives in this directory on the host, so your editor works normally. The fleet and
-DeliverMe services are black boxes: their source is not in this repo, this page
-is everything we know about them, and they behave the same way every time.
+services, so the `localhost` addresses above work exactly as written. The code
+lives in this directory on the host, so your editor works normally. The Fleet
+emulator and the HangryHippo sandbox come from a prebuilt image: their source is not
+in this repo, this README is their contract, and they are deterministic.
 
 ## Testing
 
-Each scaffold comes with one starter test per level. They show where tests live
+Each skeleton comes with one starter test per level. They show where tests live
 and how to reach the stack from them. What you test, and at which level, is up
 to you.
 
 | Level | Exercises | Needs |
 |---|---|---|
-| unit | your code on its own, with anything external faked | the dev container only |
-| integration | your code against one real dependency: the broker, the fleet or DeliverMe | `make up` |
-| e2e | the whole path: a change published to the fleet exchange, through your consumer, to what DeliverMe ends up believing | `make up`, and `make run` stopped |
+| unit | the code on its own, with anything external faked | the dev container only |
+| integration | the code against one real dependency: the broker, the fleet or HangryHippo | `make up` |
+| e2e | the whole path: a change published to the fleet exchange, through the consumer, to what HangryHippo ends up believing | `make up`, and `make run` stopped |
 
-`make test <lang> e2e` starts your consumer itself, runs the e2e tests against
+`make test <lang> e2e` starts the consumer itself, runs the e2e tests against
 it, and stops it afterwards, so stop `make run` first. If a test fails, the tail
-of your consumer's output is printed after the results. The starter e2e test
-fails until your consumer writes availability to DeliverMe.
+of the consumer's output is printed after the results. The starter e2e test
+fails until the consumer writes availability to HangryHippo.
 
-These endpoints exist for tests and are not part of either real service:
+These endpoints exist only in the local stack, for tests:
 
 | Endpoint | Does |
 |---|---|
 | `POST localhost:4001/v1/_debug/traffic` | `{"enabled": false}` stops the fleet publishing, `true` resumes it |
 | `GET localhost:4001/v1/_debug/emitted` | the last 60 changes the fleet published, in publish order |
-| `POST localhost:4002/v1/_debug/reset` | clears everything DeliverMe believes, and its call log |
-| `GET localhost:4002/v1/_debug/calls` | every availability write DeliverMe received, with its status and duration |
+| `POST localhost:4002/v1/_debug/reset` | clears everything HangryHippo believes, and its call log |
+| `GET localhost:4002/v1/_debug/calls` | every availability write HangryHippo received, with its status and duration |
 
-The starter e2e test stops traffic, purges the queue and resets DeliverMe before
+The starter e2e test stops traffic, purges the queue and resets HangryHippo before
 it runs, then turns traffic back on.
 
-## Scaffolds
+## Language skeletons
 
 One per language, with the AMQP client already installed in the container.
 

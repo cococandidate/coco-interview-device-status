@@ -24,7 +24,7 @@ class AvailabilityE2ETest {
         Channel channel = Server.connect();
         channel.queuePurge(Server.QUEUE);
         channel.getConnection().close();
-        // Lets a change your consumer already had in flight land before DeliverMe is cleared.
+        // Lets a change your consumer already had in flight land before HangryHippo is cleared.
         Thread.sleep(2000);
         Server.post(Server.PARTNER_URL + "/v1/_debug/reset", null);
     }
@@ -53,7 +53,7 @@ class AvailabilityE2ETest {
         channel.getConnection().close();
     }
 
-    // Null when DeliverMe has recorded nothing for the vehicle within the timeout.
+    // Null when HangryHippo has recorded nothing for the vehicle within the timeout.
     static Boolean availabilityOnceWritten(String vehicleId, long timeoutMs) throws Exception {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
@@ -67,7 +67,7 @@ class AvailabilityE2ETest {
     }
 
     @Test
-    @DisplayName("given a robot online with nothing blocking it, when the fleet publishes that change, then DeliverMe shows it available")
+    @DisplayName("given a robot online with nothing blocking it, when the fleet publishes that change, then HangryHippo shows it available")
     void onlineRobotWithNothingBlockingIsAvailable() throws Exception {
         publishChange("C10393", "ONLINE", List.of());
 

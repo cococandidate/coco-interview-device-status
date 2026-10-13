@@ -1,5 +1,5 @@
 {
-  "name": "candidate",
+  "name": "hangry-hippo-integration",
   "private": true,
   "type": "module",
   "dependencies": {

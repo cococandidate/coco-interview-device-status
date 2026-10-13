@@ -11,7 +11,7 @@ beforeEach(async () => {
   const conn = await amqp.connect(config.amqpUrl);
   await (await conn.createChannel()).purgeQueue(config.queue);
   await conn.close();
-  // Lets a change your consumer already had in flight land before DeliverMe is cleared.
+  // Lets a change your consumer already had in flight land before HangryHippo is cleared.
   await sleep(2000);
   await post(`${config.partnerUrl}/v1/_debug/reset`, undefined);
 });
@@ -42,7 +42,7 @@ async function availabilityOnceWritten(vehicleId: string, timeoutMs = 20_000): P
   return undefined;
 }
 
-test("given a robot online with nothing blocking it, when the fleet publishes that change, then DeliverMe shows it available", async () => {
+test("given a robot online with nothing blocking it, when the fleet publishes that change, then HangryHippo shows it available", async () => {
   await publishChange("C10393", "ONLINE", []);
 
   assert.equal(await availabilityOnceWritten("veh_8f21c4"), true);

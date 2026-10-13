@@ -14,7 +14,7 @@ def quiet_stack():
     post(f"{CONFIG['fleet_url']}/v1/_debug/traffic", {"enabled": False})
     with pika.BlockingConnection(pika.URLParameters(CONFIG["amqp_url"])) as conn:
         conn.channel().queue_purge(CONFIG["queue"])
-    # Lets a change your consumer already had in flight land before DeliverMe is cleared.
+    # Lets a change your consumer already had in flight land before HangryHippo is cleared.
     time.sleep(2)
     post(f"{CONFIG['partner_url']}/v1/_debug/reset")
     yield
@@ -46,7 +46,7 @@ def availability_once_written(vehicle_id, timeout_s=20):
     return None
 
 
-def test_given_a_robot_online_with_nothing_blocking_it_when_the_fleet_publishes_that_change_then_deliverme_shows_it_available(quiet_stack):
+def test_given_a_robot_online_with_nothing_blocking_it_when_the_fleet_publishes_that_change_then_hangry_hippo_shows_it_available(quiet_stack):
     publish_change("C10393", "ONLINE", [])
 
     assert availability_once_written("veh_8f21c4") is True

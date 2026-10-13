@@ -12,7 +12,7 @@ public class AvailabilityE2ETests : IAsyncLifetime
         {
             channel.QueuePurge(Config.Queue);
         }
-        // Lets a change your consumer already had in flight land before DeliverMe is cleared.
+        // Lets a change your consumer already had in flight land before HangryHippo is cleared.
         await Task.Delay(2000);
         await Http.Post($"{Config.PartnerUrl}/v1/_debug/reset", new { });
     }
@@ -31,7 +31,7 @@ public class AvailabilityE2ETests : IAsyncLifetime
         channel.WaitForConfirmsOrDie(TimeSpan.FromSeconds(5));
     }
 
-    // Null when DeliverMe has recorded nothing for the vehicle within the timeout.
+    // Null when HangryHippo has recorded nothing for the vehicle within the timeout.
     static async Task<bool?> AvailabilityOnceWritten(string vehicleId, int timeoutMs = 20_000)
     {
         var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
@@ -47,7 +47,7 @@ public class AvailabilityE2ETests : IAsyncLifetime
         return null;
     }
 
-    [Fact(DisplayName = "given a robot online with nothing blocking it, when the fleet publishes that change, then DeliverMe shows it available")]
+    [Fact(DisplayName = "given a robot online with nothing blocking it, when the fleet publishes that change, then HangryHippo shows it available")]
     public async Task OnlineRobotWithNothingBlockingIsAvailable()
     {
         PublishChange("C10393", "ONLINE", []);

@@ -16,7 +16,7 @@ start() {
     typescript) npm install --silent --no-audit --no-fund; exec node server.ts ;;
     python) exec python3 server.py ;;
     java) javac -cp "$JUNIT_JAR:$java_cp" *.java && exec java -cp ".:$java_cp" Server ;;
-    csharp) exec dotnet run --project candidate.csproj ;;
+    csharp) exec dotnet run --project hangry-hippo.csproj ;;
     *) echo "unknown language: $language"; exit 1 ;;
   esac
 }

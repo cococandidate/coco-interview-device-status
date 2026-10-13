@@ -40,7 +40,7 @@ RUN curl -fsSL -o /opt/junit-console.jar \
  && curl -fsSL -o /opt/slf4j-simple.jar \
       "https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/${SLF4J_VERSION}/slf4j-simple-${SLF4J_VERSION}.jar"
 
-# Warm the per-language package caches so a candidate never waits on a download.
+# Warm the per-language package caches so the first make run never waits on a download.
 RUN mkdir -p /tmp/warmgo && cd /tmp/warmgo && /usr/local/go/bin/go mod init warm >/dev/null \
  && /usr/local/go/bin/go get github.com/rabbitmq/amqp091-go@${AMQP_GO_VERSION} >/dev/null \
  && cd / && rm -rf /tmp/warmgo
