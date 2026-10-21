@@ -2,11 +2,8 @@
 
 Keeps HangryHippo's view of our robots' availability in sync with Fleet.
 
-HangryHippo is a marketplace for delivering watermelons to hippos at zoos and
-wildlife parks. Its dispatcher assigns a delivery to one of our robots only if
-we have marked that robot available. This service consumes the status changes
-Fleet publishes, decides whether each robot is available, and writes that to
-HangryHippo's Supply API.
+This service consumes the status changes Fleet publishes, decides whether each
+robot is available, and writes that to HangryHippo's Supply API.
 
 **Status:** scaffolding only. Each language skeleton connects, consumes, parses
 and acks, and does nothing else yet.
@@ -81,19 +78,10 @@ Owns the state of every robot.
 HangryHippo's platform. We do not own it and we cannot change it. It calls our
 robots vehicles, identified by its own vehicle ids; Fleet maps a serial to one.
 
-**`PUT /v1/vehicles/{vehicleId}/availability`** sets whether HangryHippo may
-assign deliveries to that vehicle. Typically takes 600 to 800ms. 404 if the
-vehicle id is unknown, 503 when HangryHippo is shedding load.
-
-```
-PUT /v1/vehicles/veh_8f21c4/availability
-{ "available": true }
-
-204 No Content
-```
-
-**`GET /v1/vehicles/{vehicleId}/availability`** is what HangryHippo currently
-believes. 404 before anything has been written.
+| Endpoint | Returns |
+|---|---|
+| `PUT /v1/vehicles/{vehicleId}/availability` | Sets whether HangryHippo may assign deliveries to that vehicle, from a body of `{ "available": true }` or `false`. 204 once recorded, typically after 600 to 800ms. 404 if the vehicle id is unknown, 503 when HangryHippo is shedding load. |
+| `GET /v1/vehicles/{vehicleId}/availability` | What HangryHippo currently believes: `vehicleId`, `available`. 404 before anything has been written. |
 
 ## Commands
 
