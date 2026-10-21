@@ -31,12 +31,12 @@ final class StatusChangeConsumer {
             change = StatusChange.parse(messageId, new String(delivery.getBody(), StandardCharsets.UTF_8));
         } catch (StatusChange.InvalidChange e) {
             System.out.printf("outcome=INVALID change=%s error=\"%s\"%n", messageId, e.getMessage());
-            settle(tag, Settle.DEAD_LETTER);
+            settle(tag, messageId, null, Settle.DEAD_LETTER);
             return;
         }
 
         sync.noteReceived(change);
-        workerForSerial.apply(change.serial()).execute(() -> settle(tag, process(change)));
+        workerForSerial.apply(change.serial()).execute(() -> settle(tag, messageId, change.serial(), process(change)));
     }
 
     private Settle process(StatusChange change) {
@@ -59,7 +59,7 @@ final class StatusChangeConsumer {
 
     private enum Settle { ACK, REQUEUE, DEAD_LETTER }
 
-    private void settle(long tag, Settle settle) {
+    private void settle(long tag, String messageId, String serial, Settle settle) {
         // Workers settle from their own threads; serialize access to the shared channel.
         synchronized (channel) {
             try {
@@ -68,9 +68,12 @@ final class StatusChangeConsumer {
                     case REQUEUE -> channel.basicNack(tag, false, true);
                     case DEAD_LETTER -> channel.basicNack(tag, false, false);
                 }
+                // One line per message with what happened to it on the queue, after the outcome line above.
+                System.out.printf("disposition=%s change=%s serial=%s tag=%d%n", settle, messageId, serial, tag);
             } catch (IOException e) {
                 // The channel is gone. The broker redelivers anything unacked, and the staleness check absorbs it.
-                System.out.printf("outcome=SETTLE_FAILED tag=%d settle=%s error=\"%s\"%n", tag, settle, e.getMessage());
+                System.out.printf("disposition=SETTLE_FAILED change=%s serial=%s tag=%d settle=%s error=\"%s\"%n",
+                        messageId, serial, tag, settle, e.getMessage());
             }
         }
     }
