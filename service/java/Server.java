@@ -4,15 +4,19 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
-import com.rabbitmq.client.Delivery;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Server {
 
@@ -21,39 +25,75 @@ public class Server {
     static final String FLEET_URL = envOr("FLEET_URL", "http://localhost:4001");
     static final String PARTNER_URL = envOr("PARTNER_URL", "http://localhost:4002");
 
-    record StatusChange(String serial, String status, String[] limitingFactors, String observedAt) {
+    // Writes are serialized per serial, so this bounds how many robots are written to at once.
+    static final int WORKERS = Integer.parseInt(envOr("WORKERS", "16"));
+    // Enough unacked deliveries to keep every worker busy and let a backlog for one robot coalesce.
+    static final int PREFETCH = Integer.parseInt(envOr("PREFETCH", "64"));
+    // HangryHippo's 204 typically takes 600 to 800ms. Past this, treat the write as failed and retry it.
+    static final long PARTNER_TIMEOUT_MS = 2000;
+    static final long FLEET_TIMEOUT_MS = 2000;
+
+    static Optional<String> fleetVehicleId(String serial)
+            throws AvailabilitySync.TransientFailure, AvailabilitySync.PermanentFailure, InterruptedException {
+        Response res;
+        try {
+            res = get(FLEET_URL + "/v1/devices/" + encode(serial) + "/partner-accounts/hangry-hippo", FLEET_TIMEOUT_MS);
+        } catch (IOException e) {
+            throw new AvailabilitySync.TransientFailure("fleet: " + e);
+        }
+        if (res.status() == 200) {
+            return Optional.of(res.string("vehicleId"));
+        }
+        if (res.status() == 404) {
+            return Optional.empty();
+        }
+        if (res.status() >= 500 || res.status() == 429) {
+            throw new AvailabilitySync.TransientFailure("fleet returned " + res.status());
+        }
+        throw new AvailabilitySync.PermanentFailure("fleet returned " + res.status());
     }
 
-    static void handleStatusChange(Channel channel, Delivery delivery) throws IOException {
-        String messageId = delivery.getProperties().getMessageId();
-        StatusChange change = JSON.fromJson(
-                new String(delivery.getBody(), StandardCharsets.UTF_8), StatusChange.class);
-
-        System.out.printf("change=%s serial=%s status=%s factors=%s redelivered=%s%n",
-                messageId, change.serial(), change.status(),
-                String.join(",", change.limitingFactors()), delivery.getEnvelope().isRedeliver());
-
-        // TODO: the steps in the README go here.
-
-        channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+    static void setPartnerAvailability(String vehicleId, boolean available)
+            throws AvailabilitySync.TransientFailure, AvailabilitySync.PermanentFailure, InterruptedException {
+        Response res;
+        try {
+            res = put(PARTNER_URL + "/v1/vehicles/" + encode(vehicleId) + "/availability",
+                    Map.of("available", available), PARTNER_TIMEOUT_MS);
+        } catch (IOException e) {
+            // Includes timeouts. HangryHippo may still record a write we gave up on; the retry writes the same value.
+            throw new AvailabilitySync.TransientFailure("hangry-hippo: " + e);
+        }
+        if (res.status() >= 200 && res.status() < 300) {
+            return;
+        }
+        if (res.status() >= 500 || res.status() == 429) {
+            throw new AvailabilitySync.TransientFailure("hangry-hippo returned " + res.status());
+        }
+        throw new AvailabilitySync.PermanentFailure("hangry-hippo returned " + res.status());
     }
 
     public static void main(String[] args) throws Exception {
         Channel channel = connect();
-        channel.basicQos(1);
+        channel.basicQos(PREFETCH);
 
-        DeliverCallback onDelivery = (consumerTag, delivery) -> {
-            try {
-                handleStatusChange(channel, delivery);
-            } catch (Exception e) {
-                e.printStackTrace();
-                channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, false);
-            }
-        };
+        AvailabilitySync sync = new AvailabilitySync(Server::fleetVehicleId, Server::setPartnerAvailability, Thread::sleep);
 
-        System.out.println("consuming " + QUEUE);
+        ExecutorService[] workers = new ExecutorService[WORKERS];
+        for (int i = 0; i < WORKERS; i++) {
+            workers[i] = Executors.newSingleThreadExecutor();
+        }
+        StatusChangeConsumer consumer = new StatusChangeConsumer(channel, sync,
+                serial -> workers[Math.floorMod(serial.hashCode(), WORKERS)]);
+
+        DeliverCallback onDelivery = (consumerTag, delivery) -> consumer.handle(delivery);
+
+        System.out.printf("consuming %s workers=%d prefetch=%d%n", QUEUE, WORKERS, PREFETCH);
         channel.basicConsume(QUEUE, false, onDelivery, consumerTag -> {
         });
+    }
+
+    static String encode(String pathSegment) {
+        return URLEncoder.encode(pathSegment, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     // --- plumbing, nothing below here is part of the exercise ---
